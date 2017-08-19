@@ -52,7 +52,7 @@ var Enemy = function() {
   this.height = 50;
   this.initialize();
 };
-
+//setSpeed로 player의 레벨을 받아서 speed 값을 조정 해 주어야 한다.
 Enemy.prototype.initialize = function() {
   if (gameState != 2) { //unless game over
     this.speed = Math.random() * player.level * 100 + 100; //choose initial speed at random
@@ -269,47 +269,38 @@ var p5sketch = function(p) {
   };
 
   p.keyPressed = function() {
-    var str = '';
-    
-    if (drawObject.game == undefined) return;
-
-    if (drawObject.game.isPause) {
-      if (p.keyCode === p.ENTER) {
-        str = 'Enter_Key';
-      } else if (p.key === 'R') {
-        str = 'R_Key';
-      } else str = 'none';
-    } else {
-      if (p.keyCode === p.ENTER) {
-        str = 'Enter_Key';
-      } else if (p.key === 'R') {
-        str = 'R_Key';
-      } else if (p.key === 'A') {
-        str = 'A_Key';
-      } else if (p.key === 'S') {
-        str = 'S_Key';
-      } else if (p.keyCode === global.KEY_SPACE) { /*space bar*/
-        str = 'Space_Key';
-      } else if (p.keyCode === global.KEY_SHIFT) { /*shift*/
-        // hold 할 수 없으면 전송하지 않는다.
-        if (drawObject.game.holdable) {
-          str = 'Shift_Key';
-        }
-      } else if (p.keyCode === p.LEFT_ARROW) {
-        str = 'Left_Key';
-      } else if (p.keyCode === p.RIGHT_ARROW) {
-        str = 'Right_Key';
-      } else if (p.keyCode === p.DOWN_ARROW) {
-        str = 'Down_Key';
-      } else if (p.keyCode === p.UP_ARROW) {
-        str = 'Up_Key';
-      } else str = 'none';
+    var keypress = p.keyCode;
+    if (gameState == 1) { //while playing the game
+      switch (keypress) {
+        case 37:
+          game.player.col -= 1;
+          break;
+        case 39:
+          game.player.col += 1;
+          break;
+        case 38:
+          game.player.row -= 1;
+          break;
+        case 40:
+          game.player.row += 1;
+          break;
+      }
+      game.player.update();
+    } else if (gameState == 0) { //to start the game
+      if (keypress === 32) {
+        gameState = 1;
+      }
+    }else if (gameState == 2) {
+      if (keypress === 82) {
+        gameState = 0;
+        gems = new Gems();
+        player = new Player();
+        //there are only three bugs on screen at any one time
+        bug1 = new Enemy();
+        bug2 = new Enemy();
+        bug3 = new Enemy();
+      }
     }
-
-    if (str !== 'none') drawObject.emit('Key_Pressed', {
-      data: str
-    });
-    p.redraw();
   };
 };
 
@@ -325,25 +316,26 @@ DrawFroggerGame.prototype.renderInfo = function(){
   //ctx.textAlign = "left";
   p5Object.textAlign(LEFT);
   //ctx.clearRect(10, 50, 500, -50);
-  p5Object.text("LEVEL: " + player.level, 10, 38);
   //ctx.fillText("LEVEL: " + player.level, 10, 38);
+  p5Object.text("LEVEL: " + game.player.level, 10, 38);
   //ctx.drawImage(Resources.get('./gem-blue.png'), 194, 1, 25, 42);
   p5Object.image(blueGem, 194, 1, 25, 42); // x,y,width,height
   //ctx.fillText(player.score, 224, 38);
-  p5Object.text(player.score, 224, 38);
+  p5Object.text(game.player.score, 224, 38);
   //ctx.drawImage(Resources.get('./Heart.png'), 294, 4, 25, 42);
   p5Object.image(heartImg, 294, 4, 25, 42);
   //ctx.fillText(player.lives, 324, 38);
-  p5Object.text(player.lives, 324, 38);
+  p5Object.text(game.player.lives, 324, 38);
   //show a star if player is in invincibility mode
   if (player.invincible === true) {
     //ctx.drawImage(Resources.get('./Star.png'), 394, -15, 40, 69);
     p5Object.image(starImg, 394, -15, 40, 69);
   }
-}
+};
 
 // This listens for key presses and sends the keys to your
 // Player.handleInput() method. You don't need to modify this.
+/*
 document.addEventListener('keyup', function(e) {
   var allowedKeys = {
     37: 'left',
@@ -355,3 +347,4 @@ document.addEventListener('keyup', function(e) {
   };
   player.handleInput(allowedKeys[e.keyCode]);
 });
+*/
