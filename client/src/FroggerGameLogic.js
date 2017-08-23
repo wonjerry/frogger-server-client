@@ -5,6 +5,11 @@ var Popup = require('./Popup');
 
 var FroggerGame = function() {
   var self = this;
+  self.init();
+};
+
+FroggerGame.prototype.init = function() {
+  var self = this;
   self.gameState = 0; //0=not started, 1=playing, 2=game over
 
   self.gems = new Gems();
@@ -27,12 +32,46 @@ FroggerGame.prototype.checkCollisions = function() {
         self.player.y < enemy.y + enemy.height && self.player.y + self.player.height > enemy.y) {
         self.player.lives -= 1;
         if (self.player.lives === 0) {
-          self.gameState = 2; //game over
+          self.gameState = 2;
+          return;
         } else {
           self.player.initialize();
-          //this.gems.initialize();
+          return;
         }
       }
+    }
+  }
+};
+
+FroggerGame.prototype.handleInput = function(key) {
+  var self = this;
+  if (self.gameState == 1) { //while playing the game
+    switch (key) {
+      case 'left':
+        self.player.col -= 1;
+        break;
+      case 'right':
+        self.player.col += 1;
+        break;
+      case 'up':
+        self.player.row -= 1;
+        break;
+      case 'down':
+        self.player.row += 1;
+        break;
+      case 'restart':
+        self.init();
+        break;
+    }
+    // updateAll에서 update시키면 쓸데없이 많은 비교를 하게 된다.
+    self.player.update(self.gems);
+  } else if (self.gameState == 0) { //to start the game
+    if (key === 'space') {
+      self.gameState = 1;
+    }
+  } else if (self.gameState == 2) {
+    if (key === 'restart') {
+      self.init();
     }
   }
 };

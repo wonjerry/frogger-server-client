@@ -70,16 +70,19 @@ module.exports = Enemy;
 
 },{}],3:[function(require,module,exports){
 var inherits = require('inherits');
-var FroggerGame = require('./FroggerGameLogic');
-var game = null;
+var FroggerGame= require('./FroggerGameLogic');
 var p5Object;
 
 function DrawFroggerGame() {
   if (!(this instanceof DrawFroggerGame)) return new DrawFroggerGame();
 }
 
-DrawFroggerGame.prototype.init = function() {
+DrawFroggerGame.prototype.init = function(p) {
   var self = this;
+  p5Object = p;
+  self.width = 505;
+  self.height = 606;
+
   self.blueGemImg = p5Object.loadImage('./../public/images/gem-blue.png');
   self.heartImg = p5Object.loadImage('./../public/images/Heart.png');
   self.starImg = p5Object.loadImage('./../public/images/Star.png');
@@ -96,6 +99,16 @@ DrawFroggerGame.prototype.init = function() {
   self.playerImg = p5Object.loadImage('./../public/images/char-boy.png');
 
   self.lastTime = Date.now();
+
+  self.game = new FroggerGame();
+};
+
+DrawFroggerGame.prototype.getScale = function(){
+  var self = this;
+  return {
+    w : self.width,
+    h : self.height
+  };
 };
 
 DrawFroggerGame.prototype.renderLoop = function() {
@@ -120,24 +133,25 @@ DrawFroggerGame.prototype.renderInfo = function() {
   //render scores and lives at top of screen
   p5Object.textFont('serif', [30]);
   p5Object.textAlign(p5Object.LEFT);
-  p5Object.text("LEVEL: " + game.player.level, 10, 38);
+  p5Object.text("LEVEL: " + self.game.player.level, 10, 38);
   p5Object.image(self.blueGemImg, 194, 1, 25, 42); // x,y,width,height
-  p5Object.text(game.player.score, 224, 38);
+  p5Object.text(self.game.player.score, 224, 38);
   p5Object.image(self.heartImg, 294, 4, 25, 42);
-  p5Object.text(game.player.lives, 324, 38);
-  if (game.player.invincible === true) {
+  p5Object.text(self.game.player.lives, 324, 38);
+  if (self.game.player.invincible === true) {
     p5Object.image(self.starImg, 394, -15, 40, 69);
   }
 };
 
 DrawFroggerGame.prototype.update = function(dt) {
-  if (game === null) return;
-  game.updateAll(dt);
+  var self = this;
+  if (self.game === null) return;
+  self.game.updateAll(dt);
 };
 
 DrawFroggerGame.prototype.render = function() {
   var self = this;
-  if (game === null) return;
+  if (self.game === null) return;
   self.renderMap();
   self.renderInfo();
   self.renderEntities();
@@ -168,7 +182,7 @@ DrawFroggerGame.prototype.renderMap = function() {
       //ctx.drawImage(Resources.get(rowImages[row]), col * 101, row * 83);
       p5Object.image(self.rowImages[row], col * 101, row * 83); // x,y,width,height
       //after drawing the board, draw the gems on top according to the current gemGrid
-      var gemType = game.gems.gemGrid[row][col];
+      var gemType = self.game.gems.gemGrid[row][col];
       switch (gemType) {
         case 0:
           break;
@@ -202,7 +216,7 @@ DrawFroggerGame.prototype.renderEntities = function() {
   /* Loop through all of the objects within the allEnemies array and call
    * the render function you have defined.
    */
-   var gameState = game.gameState;
+   var gameState = self.game.gameState;
   self.enemyRender();
   self.playerRender(gameState);
   self.popupRender(gameState);
@@ -212,14 +226,14 @@ DrawFroggerGame.prototype.playerRender = function(gameState){
   var self = this;
   if (gameState == 1) { //player only shows during gameplay
     //ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
-    var playerPos = game.player.getPosition();
+    var playerPos = self.game.player.getPosition();
     p5Object.image(self.playerImg, playerPos.x, playerPos.y);
   }
 };
 
 DrawFroggerGame.prototype.enemyRender = function(){
   var self = this;
-  game.allEnemies.forEach(function(enemy) {
+  self.game.allEnemies.forEach(function(enemy) {
     var enemyPos = enemy.getPosition();
     p5Object.image(self.enemyImg, enemyPos.x, enemyPos.y);
   });
@@ -239,59 +253,7 @@ DrawFroggerGame.prototype.popupRender = function(gameState){
   ctx.fillText(this.options[state], 252, 302);
   */
 };
-
-var p5sketch = function(p) {
-  p5Object = p;
-  var drawObject = new DrawFroggerGame();
-  p.preload = function() {
-    // info area Images on top
-    drawObject.init();
-  };
-
-  p.setup = function() {
-    p.createCanvas(505, 606);
-    game = new FroggerGame();
-  };
-
-  p.draw = function() {
-    p.clear();
-    drawObject.renderLoop();
-  };
-
-  p.keyPressed = function() {
-    var keypress = p.keyCode;
-    var gameState = game.gameState;
-    if (gameState == 1) { //while playing the game
-      switch (keypress) {
-        case 37:
-          game.player.col -= 1;
-          break;
-        case 39:
-          game.player.col += 1;
-          break;
-        case 38:
-          game.player.row -= 1;
-          break;
-        case 40:
-          game.player.row += 1;
-          break;
-      }
-      // updateAll에서 update시키면 쓸데없이 많은 비교를 하게 된다.
-      game.player.update(game.gems);
-    } else if (gameState == 0) { //to start the game
-      if (keypress === 32) {
-        game.gameState = 1;
-      }
-    } else if (gameState == 2) {
-      if (keypress === 82) {
-        game = new FroggerGame();
-      }
-    }
-  };
-
-};
-
-new p5(p5sketch, 'myp5sketch');
+module.exports = DrawFroggerGame;
 
 },{"./FroggerGameLogic":4,"inherits":1}],4:[function(require,module,exports){
 var Gems = require('./Gems');
@@ -300,6 +262,11 @@ var Enemy = require('./Enemy');
 var Popup = require('./Popup');
 
 var FroggerGame = function() {
+  var self = this;
+  self.init();
+};
+
+FroggerGame.prototype.init = function() {
   var self = this;
   self.gameState = 0; //0=not started, 1=playing, 2=game over
 
@@ -323,12 +290,48 @@ FroggerGame.prototype.checkCollisions = function() {
         self.player.y < enemy.y + enemy.height && self.player.y + self.player.height > enemy.y) {
         self.player.lives -= 1;
         if (self.player.lives === 0) {
-          self.gameState = 2; //game over
+          self.gameState = 2;
+          return;
         } else {
           self.player.initialize();
-          //this.gems.initialize();
+          return;
         }
       }
+    }
+  }
+};
+
+FroggerGame.prototype.handleInput = function(key) {
+  var self = this;
+  if (self.gameState == 1) { //while playing the game
+    switch (key) {
+      case 'left':
+        self.player.col -= 1;
+        break;
+      case 'right':
+        self.player.col += 1;
+        break;
+      case 'up':
+        self.player.row -= 1;
+        break;
+      case 'down':
+        self.player.row += 1;
+        break;
+      case 'restart':
+        self.init();
+        break;
+    }
+    // updateAll에서 update시키면 쓸데없이 많은 비교를 하게 된다.
+    self.player.update(self.gems);
+  } else if (self.gameState == 0) { //to start the game
+    console.log('??????');
+    if (key === 'space') {
+      console.log('??????2');
+      self.gameState = 1;
+    }
+  } else if (self.gameState == 2) {
+    if (key === 'restart') {
+      self.init();
     }
   }
 };
@@ -504,4 +507,38 @@ Popup.prototype.render = function(state) {
 
 module.exports = Popup;
 
-},{}]},{},[3]);
+},{}],8:[function(require,module,exports){
+var DrawModule = require('./FroggerGameBoard');
+var allowedKeys = {
+  37: 'left',
+  38: 'up',
+  39: 'right',
+  40: 'down',
+  32: 'space',
+  82: 'restart'
+};
+
+var p5sketch = function(p) {
+  drawObj = new DrawModule();
+  p.preload = function() {
+    // info area Images on top
+    drawObj.init(p);
+  };
+
+  p.setup = function() {
+    var scale = drawObj.getScale();
+    p.createCanvas(scale.w, scale.h);
+  };
+
+  p.draw = function() {
+    p.clear();
+    drawObj.renderLoop();
+  };
+
+  p.keyPressed = function() {
+    drawObj.game.handleInput(allowedKeys[p.keyCode]);
+  };
+};
+new p5(p5sketch, 'myp5sketch');
+
+},{"./FroggerGameBoard":3}]},{},[8]);
