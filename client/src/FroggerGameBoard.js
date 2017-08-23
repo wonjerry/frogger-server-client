@@ -9,20 +9,20 @@ function DrawFroggerGame() {
 
 DrawFroggerGame.prototype.init = function() {
   var self = this;
-  self.blueGemImg = p5Object.loadImage('./images/gem-blue.png');
-  self.heartImg = p5Object.loadImage('./images/Heart.png');
-  self.starImg = p5Object.loadImage('./images/Star.png');
+  self.blueGemImg = p5Object.loadImage('./../public/images/gem-blue.png');
+  self.heartImg = p5Object.loadImage('./../public/images/Heart.png');
+  self.starImg = p5Object.loadImage('./../public/images/Star.png');
   // map area Images
-  self.waterImg = p5Object.loadImage('./images/water-block.png');
-  self.stoneImg = p5Object.loadImage('./images/stone-block.png');
-  self.grassImg = p5Object.loadImage('./images/grass-block.png');
+  self.waterImg = p5Object.loadImage('./../public/images/water-block.png');
+  self.stoneImg = p5Object.loadImage('./../public/images/stone-block.png');
+  self.grassImg = p5Object.loadImage('./../public/images/grass-block.png');
   self.rowImages = [self.waterImg, self.stoneImg, self.stoneImg, self.stoneImg, self.grassImg, self.grassImg];
   // item Images
-  self.greenGemImg = p5Object.loadImage('./images/gem-green.png');
-  self.orangeGemImg = p5Object.loadImage('./images/gem-orange.png');
+  self.greenGemImg = p5Object.loadImage('./../public/images/gem-green.png');
+  self.orangeGemImg = p5Object.loadImage('./../public/images/gem-orange.png');
   // enemy and player image
-  self.enemyImg = p5Object.loadImage('./images/enemy-bug.png');
-  self.playerImg = p5Object.loadImage('./images/char-boy.png');
+  self.enemyImg = p5Object.loadImage('./../public/images/enemy-bug.png');
+  self.playerImg = p5Object.loadImage('./../public/images/char-boy.png');
 
   self.lastTime = Date.now();
 };

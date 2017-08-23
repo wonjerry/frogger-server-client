@@ -1,4 +1,29 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+if (typeof Object.create === 'function') {
+  // implementation from standard node.js 'util' module
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    ctor.prototype = Object.create(superCtor.prototype, {
+      constructor: {
+        value: ctor,
+        enumerable: false,
+        writable: true,
+        configurable: true
+      }
+    });
+  };
+} else {
+  // old school shim for old browsers
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    var TempCtor = function () {}
+    TempCtor.prototype = superCtor.prototype
+    ctor.prototype = new TempCtor()
+    ctor.prototype.constructor = ctor
+  }
+}
+
+},{}],2:[function(require,module,exports){
 // Enemies our player must avoid
 var Enemy = function() {
   var self = this;
@@ -43,7 +68,7 @@ Enemy.prototype.getPosition = function() {
 
 module.exports = Enemy;
 
-},{}],2:[function(require,module,exports){
+},{}],3:[function(require,module,exports){
 var inherits = require('inherits');
 var FroggerGame = require('./FroggerGameLogic');
 var game = null;
@@ -55,20 +80,20 @@ function DrawFroggerGame() {
 
 DrawFroggerGame.prototype.init = function() {
   var self = this;
-  self.blueGemImg = p5Object.loadImage('./images/gem-blue.png');
-  self.heartImg = p5Object.loadImage('./images/Heart.png');
-  self.starImg = p5Object.loadImage('./images/Star.png');
+  self.blueGemImg = p5Object.loadImage('./../public/images/gem-blue.png');
+  self.heartImg = p5Object.loadImage('./../public/images/Heart.png');
+  self.starImg = p5Object.loadImage('./../public/images/Star.png');
   // map area Images
-  self.waterImg = p5Object.loadImage('./images/water-block.png');
-  self.stoneImg = p5Object.loadImage('./images/stone-block.png');
-  self.grassImg = p5Object.loadImage('./images/grass-block.png');
+  self.waterImg = p5Object.loadImage('./../public/images/water-block.png');
+  self.stoneImg = p5Object.loadImage('./../public/images/stone-block.png');
+  self.grassImg = p5Object.loadImage('./../public/images/grass-block.png');
   self.rowImages = [self.waterImg, self.stoneImg, self.stoneImg, self.stoneImg, self.grassImg, self.grassImg];
   // item Images
-  self.greenGemImg = p5Object.loadImage('./images/gem-green.png');
-  self.orangeGemImg = p5Object.loadImage('./images/gem-orange.png');
+  self.greenGemImg = p5Object.loadImage('./../public/images/gem-green.png');
+  self.orangeGemImg = p5Object.loadImage('./../public/images/gem-orange.png');
   // enemy and player image
-  self.enemyImg = p5Object.loadImage('./images/enemy-bug.png');
-  self.playerImg = p5Object.loadImage('./images/char-boy.png');
+  self.enemyImg = p5Object.loadImage('./../public/images/enemy-bug.png');
+  self.playerImg = p5Object.loadImage('./../public/images/char-boy.png');
 
   self.lastTime = Date.now();
 };
@@ -268,7 +293,7 @@ var p5sketch = function(p) {
 
 new p5(p5sketch, 'myp5sketch');
 
-},{"./FroggerGameLogic":3,"inherits":7}],3:[function(require,module,exports){
+},{"./FroggerGameLogic":4,"inherits":1}],4:[function(require,module,exports){
 var Gems = require('./Gems');
 var Player = require('./Player');
 var Enemy = require('./Enemy');
@@ -319,7 +344,7 @@ FroggerGame.prototype.updateAll = function(dt) {
 
 module.exports = FroggerGame;
 
-},{"./Enemy":1,"./Gems":4,"./Player":5,"./Popup":6}],4:[function(require,module,exports){
+},{"./Enemy":2,"./Gems":5,"./Player":6,"./Popup":7}],5:[function(require,module,exports){
 var Gems = function() {
   var self = this;
   self.gemGrid = [
@@ -367,7 +392,7 @@ Gems.prototype.initialize = function() {
 
 module.exports = Gems;
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 //Player the user controls
 var Player = function() {
   var self = this;
@@ -447,7 +472,7 @@ Player.prototype.getPosition = function() {
 
 module.exports = Player;
 
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 //start and end screen
 var Popup = function() {
   this.options = ["PRESS [SPACE] TO START", "", "GAME OVER"];
@@ -479,29 +504,4 @@ Popup.prototype.render = function(state) {
 
 module.exports = Popup;
 
-},{}],7:[function(require,module,exports){
-if (typeof Object.create === 'function') {
-  // implementation from standard node.js 'util' module
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    ctor.prototype = Object.create(superCtor.prototype, {
-      constructor: {
-        value: ctor,
-        enumerable: false,
-        writable: true,
-        configurable: true
-      }
-    });
-  };
-} else {
-  // old school shim for old browsers
-  module.exports = function inherits(ctor, superCtor) {
-    ctor.super_ = superCtor
-    var TempCtor = function () {}
-    TempCtor.prototype = superCtor.prototype
-    ctor.prototype = new TempCtor()
-    ctor.prototype.constructor = ctor
-  }
-}
-
-},{}]},{},[2]);
+},{}]},{},[3]);
