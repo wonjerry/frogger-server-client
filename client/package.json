@@ -4,7 +4,7 @@
   "description": "Frogger game client",
   "main": "app.js",
   "scripts": {
-    "test": "browserify app.js -o FroggerGame.js"
+    "test": "browserify src/FroggerGameBoard.js -o public/js/FroggerGame.js"
   },
   "author": "",
   "license": "ISC",
