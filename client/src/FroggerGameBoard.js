@@ -57,6 +57,14 @@ DrawFroggerGame.prototype.renderLoop = function() {
   self.lastTime = now;
 };
 
+DrawFroggerGame.prototype.render = function() {
+  var self = this;
+  if (self.game === null) return;
+  self.renderMap();
+  self.renderInfo();
+  self.renderEntities();
+};
+
 DrawFroggerGame.prototype.renderInfo = function() {
   var self = this;
   //render scores and lives at top of screen
@@ -76,14 +84,6 @@ DrawFroggerGame.prototype.update = function(dt) {
   var self = this;
   if (self.game === null) return;
   self.game.updateAll(dt);
-};
-
-DrawFroggerGame.prototype.render = function() {
-  var self = this;
-  if (self.game === null) return;
-  self.renderMap();
-  self.renderInfo();
-  self.renderEntities();
 };
 
 DrawFroggerGame.prototype.renderMap = function() {
@@ -108,31 +108,24 @@ DrawFroggerGame.prototype.renderMap = function() {
        * so that we get the benefits of caching these images, since
        * we're using them over and over.
        */
-      //ctx.drawImage(Resources.get(rowImages[row]), col * 101, row * 83);
       p5Object.image(self.rowImages[row], col * 101, row * 83); // x,y,width,height
-      //after drawing the board, draw the gems on top according to the current gemGrid
       var gemType = self.game.gems.gemGrid[row][col];
       switch (gemType) {
         case 0:
           break;
         case 1:
-          //ctx.drawImage(Resources.get('./gem-blue.png'), col * 101 + 25, row * 83 + 30, 50, 85);
           p5Object.image(self.blueGemImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
           break;
         case 2:
-          //ctx.drawImage(Resources.get('./gem-green.png'), col * 101 + 25, row * 83 + 30, 50, 85);
           p5Object.image(self.greenGemImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
           break;
         case 3:
-          //ctx.drawImage(Resources.get('./gem-orange.png'), col * 101 + 25, row * 83 + 30, 50, 85);
           p5Object.image(self.orangeGemImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
           break;
         case 4:
-          //ctx.drawImage(Resources.get('./Heart.png'), col * 101 + 25, row * 83 + 40, 50, 85);
           p5Object.image(self.heartImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
           break;
         case 5:
-          //ctx.drawImage(Resources.get('./Star.png'), col * 101 + 25, row * 83 + 30, 50, 85);
           p5Object.image(self.starImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
           break;
       }
