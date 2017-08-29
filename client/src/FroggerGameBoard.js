@@ -1,6 +1,7 @@
 var inherits = require('inherits');
-var FroggerGame= require('./FroggerGameLogic');
+var FroggerGame = require('./FroggerGameLogic');
 var p5Object;
+var _dir = './../images/';
 
 function DrawFroggerGame() {
   if (!(this instanceof DrawFroggerGame)) return new DrawFroggerGame();
@@ -12,31 +13,31 @@ DrawFroggerGame.prototype.init = function(p) {
   self.width = 505;
   self.height = 606;
 
-  self.blueGemImg = p5Object.loadImage('./../public/images/gem-blue.png');
-  self.heartImg = p5Object.loadImage('./../public/images/Heart.png');
-  self.starImg = p5Object.loadImage('./../public/images/Star.png');
+  self.heartImg = p5Object.loadImage(_dir + 'Heart.png');
+  self.starImg = p5Object.loadImage(_dir + 'Star.png');
   // map area Images
-  self.waterImg = p5Object.loadImage('./../public/images/water-block.png');
-  self.stoneImg = p5Object.loadImage('./../public/images/stone-block.png');
-  self.grassImg = p5Object.loadImage('./../public/images/grass-block.png');
+  self.waterImg = p5Object.loadImage(_dir + 'water-block.png');
+  self.stoneImg = p5Object.loadImage(_dir + 'stone-block.png');
+  self.grassImg = p5Object.loadImage(_dir + 'grass-block.png');
   self.rowImages = [self.waterImg, self.stoneImg, self.stoneImg, self.stoneImg, self.grassImg, self.grassImg];
   // item Images
-  self.greenGemImg = p5Object.loadImage('./../public/images/gem-green.png');
-  self.orangeGemImg = p5Object.loadImage('./../public/images/gem-orange.png');
+  self.blueGemImg = p5Object.loadImage(_dir + 'gem-blue.png');
+  self.greenGemImg = p5Object.loadImage(_dir + 'gem-green.png');
+  self.orangeGemImg = p5Object.loadImage(_dir + 'gem-orange.png');
   // enemy and player image
-  self.enemyImg = p5Object.loadImage('./../public/images/enemy-bug.png');
-  self.playerImg = p5Object.loadImage('./../public/images/char-boy.png');
+  self.enemyImg = p5Object.loadImage(_dir + 'enemy-bug.png');
+  self.playerImg = p5Object.loadImage(_dir + 'char-boy.png');
 
   self.lastTime = Date.now();
 
   self.game = new FroggerGame();
 };
 
-DrawFroggerGame.prototype.getScale = function(){
+DrawFroggerGame.prototype.getScale = function() {
   var self = this;
   return {
-    w : self.width,
-    h : self.height
+    w: self.width,
+    h: self.height
   };
 };
 
@@ -138,13 +139,13 @@ DrawFroggerGame.prototype.renderEntities = function() {
   /* Loop through all of the objects within the allEnemies array and call
    * the render function you have defined.
    */
-   var gameState = self.game.gameState;
+  var gameState = self.game.gameState;
   self.enemyRender();
   self.playerRender(gameState);
   self.popupRender(gameState);
 };
 
-DrawFroggerGame.prototype.playerRender = function(gameState){
+DrawFroggerGame.prototype.playerRender = function(gameState) {
   var self = this;
   if (gameState == 1) { //player only shows during gameplay
     //ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
@@ -153,7 +154,7 @@ DrawFroggerGame.prototype.playerRender = function(gameState){
   }
 };
 
-DrawFroggerGame.prototype.enemyRender = function(){
+DrawFroggerGame.prototype.enemyRender = function() {
   var self = this;
   self.game.allEnemies.forEach(function(enemy) {
     var enemyPos = enemy.getPosition();
@@ -161,7 +162,7 @@ DrawFroggerGame.prototype.enemyRender = function(){
   });
 };
 
-DrawFroggerGame.prototype.popupRender = function(gameState){
+DrawFroggerGame.prototype.popupRender = function(gameState) {
   //if(gameState === 1) return;
   /*
   ctx.fillStyle = "white";

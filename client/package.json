@@ -4,12 +4,13 @@
   "description": "Frogger game client",
   "main": "app.js",
   "scripts": {
-    "test": "browserify src/p5Canvas.js -o public/js/FroggerGame.js"
+    "test": "browserify src/index.js -o public/js/FroggerGame.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "events": "^1.1.1",
-    "inherits": "^2.0.3"
+    "inherits": "^2.0.3",
+    "socket.io-client": "^2.0.3"
   }
 }

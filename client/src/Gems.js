@@ -14,10 +14,14 @@ var Gems = function() {
 //lay gems at random at the start of each level
 Gems.prototype.initialize = function() {
   var self = this;
+  self.gemCnt = 0;
   for (var i = 1; i < 4; i++) { //rows (only the paved ones)
     for (var j = 0; j < 5; j++) { //columns
       //choose whether each square should contain a gem, heart, star, or nothing
+      // 이 부분도 random seed로 처리해야됨
       var random = Math.floor(Math.random() * 100);
+      if(random >= 50) self.gemCnt++;
+
       switch (true) {
         case (random < 50):
           self.gemGrid[i][j] = 0;

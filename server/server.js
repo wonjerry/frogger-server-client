@@ -3,11 +3,23 @@ var app = express();
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 var path = require('path');
+var RoomManager = require('./roomManager');
 
 app.use('/', express.static(path.join(__dirname, './../client/public')));
 
+var roomManager = new RoomManager(io);
+
 io.on('connection', function(socket) {
-  console.log('hihi');
+  socket.on('join', function(message) {
+      // attach room manager
+      console.log(message);
+      roomManager.requestGameRoom(socket);
+  });
+
+  socket.on('disconnect', function() {
+      console.log('Client has disconnected: ' + socket.id);
+      //roomManager.userDisconnect(socket);
+  });
 });
 
 
