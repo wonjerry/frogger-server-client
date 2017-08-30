@@ -1,5 +1,5 @@
 // gameroom 모듈을 사용한다.
-var Game = require('./../client/src/FroggerGameLogic');
+var GameRoom = require('./gameroom');
 var MAX_CLIENT = 4;
 
 function RoomManager(socketio) {
@@ -26,9 +26,11 @@ RoomManager.prototype.requestGameRoom = function(socket) {
             // 빈 방이 있으면 그 방을 가져온다.
             var gameroom = self.gameRooms[key];
             // 클라이언트가 꽉 차있으면 다른방을 찾는다.
-            if (gameroom.players.length > MAX_CLIENT) continue;
+            console.log(gameroom.getPlayerNum());
+            if (gameroom.getPlayerNum() > MAX_CLIENT) continue;
 
             socket.join(key);
+            socket.emit('welcome' , { seed : gameroom.getSeed() });
             // client에게 주는 option은 추가될 수 있음
             gameroom.pushClient({ id: socket.id });
             hasJoined = true;
@@ -40,7 +42,6 @@ RoomManager.prototype.requestGameRoom = function(socket) {
 
     // 게임 이벤트 핸들러를 바인딩한다.
     socket.on('game packet', function(message) {
-        console.log(message);
         var gameroom = self.gameRooms[message.room_id];
         gameroom.clientEventHandler.call(gameroom, message);
     });
@@ -49,15 +50,15 @@ RoomManager.prototype.requestGameRoom = function(socket) {
 RoomManager.prototype.createGameRoom = function(socket) {
     var self = this;
     // game에 들어가는 옵션은 추가될 수 있음
-    var gameroom = new Game({ room_id: Math.random().toString(36).substr(2)});
-    gameroom.initGame();
+    var gameroom = new GameRoom({ room_id: Math.random().toString(36).substr(2), seed: Math.random().toString(36).substr(2)});
     socket.join(gameroom.room_id);
-    gameroom.on('userleave', self.leaveGameRoom.bind(self));
+    //gameroom.on('userleave', self.leaveGameRoom.bind(self));
     gameroom.on('response', self.roomResponse.bind(self));
     // room id가 randomSeed이다.
     gameroom.pushClient({ id: socket.id });
 
     self.gameRooms[gameroom.room_id] = gameroom;
+    socket.emit('welcome' , { seed : gameroom.getSeed() });
 };
 
 RoomManager.prototype.roomResponse = function(message) {
@@ -102,13 +103,13 @@ RoomManager.prototype.userDisconnect = function(socket) {
 // How do I check if an array includes an object in JavaScript?
 // https://stackoverflow.com/questions/237104/how-do-i-check-if-an-array-includes-an-object-in-javascript
 Array.prototype.contains = function(obj) {
-    var i = this.length
+    var i = this.length;
     while (i--) {
         if (this[i] === obj) {
-            return true
+            return true;
         }
     }
-    return false
-}
+    return false;
+};
 
-module.exports = RoomManager
+module.exports = RoomManager;

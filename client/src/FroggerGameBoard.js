@@ -1,4 +1,3 @@
-var inherits = require('inherits');
 var FroggerGame = require('./FroggerGameLogic');
 var p5Object;
 var _dir = './../images/';
@@ -29,8 +28,13 @@ DrawFroggerGame.prototype.init = function(p) {
   self.playerImg = p5Object.loadImage(_dir + 'char-boy.png');
 
   self.lastTime = Date.now();
+};
 
-  self.game = new FroggerGame();
+DrawFroggerGame.prototype.gameSetting = function(settings) {
+    var self = this;
+    self.game = new FroggerGame(settings);
+    self.game.addPlayer({ id : settings.id });
+    self.game.initGame();
 };
 
 DrawFroggerGame.prototype.getScale = function() {
@@ -68,15 +72,16 @@ DrawFroggerGame.prototype.render = function() {
 
 DrawFroggerGame.prototype.renderInfo = function() {
   var self = this;
+  var player = self.game.getPlayer();
   //render scores and lives at top of screen
   p5Object.textFont('serif', [30]);
   p5Object.textAlign(p5Object.LEFT);
-  p5Object.text("LEVEL: " + self.game.player.level, 10, 38);
+  p5Object.text("LEVEL: " + self.game.level, 10, 38);
   p5Object.image(self.blueGemImg, 194, 1, 25, 42); // x,y,width,height
-  p5Object.text(self.game.player.score, 224, 38);
+  p5Object.text(player.score, 224, 38);
   p5Object.image(self.heartImg, 294, 4, 25, 42);
-  p5Object.text(self.game.player.lives, 324, 38);
-  if (self.game.player.invincible === true) {
+  p5Object.text(player.lives, 324, 38);
+  if (player.invincible === true) {
     p5Object.image(self.starImg, 394, -15, 40, 69);
   }
 };
@@ -148,8 +153,8 @@ DrawFroggerGame.prototype.renderEntities = function() {
 DrawFroggerGame.prototype.playerRender = function(gameState) {
   var self = this;
   if (gameState == 1) { //player only shows during gameplay
-    //ctx.drawImage(Resources.get(this.sprite), this.x, this.y);
-    var playerPos = self.game.player.getPosition();
+
+    var playerPos = self.game.getPlayer().getBoardPosition();
     p5Object.image(self.playerImg, playerPos.x, playerPos.y);
   }
 };

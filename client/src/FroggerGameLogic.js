@@ -2,89 +2,54 @@ var Gems = require('./Gems');
 var Player = require('./Player');
 var Enemy = require('./Enemy');
 var Popup = require('./Popup');
-var EventEmitter = require('events').EventEmitter;
-var inherits = require('inherits');
-var Util = require('./../../server/socket_util');
-
-inherits(FroggerGame, EventEmitter);
+var SeedRandom = require('SeedRandom');
 
 // RommManager에서는 pushClient 할 떄 randomSeed를 받았지만
 // 내 게임에서는 FrooggerGame 만들 때 randomSeed를 받는다.
-var FroggerGame = function(options) {
+// 클라이언트는 서버와 연결 시 초기에 randomSeed를 받는다.
+function FroggerGame(options) {
   var self = this;
-  if (!(self instanceof GameRoom)) return new GameRoom(options);
-
-  self.randomSeed = options.randomSeed || Date.now();
-  self.random = SeedRandom(self.randomSeed);
-
-  self.room_id = options.room_id || Math.random().toString(36).substr(2);
-  self.gameState = Util.GAMESTATES.INIT; // 시퀀셜 진행
+  if (!(self instanceof FroggerGame)) return new FroggerGame(options);
+  self.gameState = 0; // 시퀀셜 진행
   // game data를 초기화 한다.
   self.players = {};
-  self.gameInterval = null;
-  self.prevTick = 0;
-  self.ChangeGameState = function(state) {
-    self.gameState = state;
-    self.prevTick = Date.now();
-  };
-};
+  self.playerCnt = 0;
+  self.clientId = null;
+  self.randomSeed = options.seed || Date.now();
+  self.random = SeedRandom(self.randomSeed);
+}
+
 // RoomManager에서 socket.id를 받는다.
 // options는 추가될 수 있음
-FroggerGame.prototype.pushClient = function(options) {
+// 나중에 otherPlayer 들어오면 이거가지고 조정 해 줘야되는데 id만 받으면 안됨
+FroggerGame.prototype.addPlayer = function(options) {
   var self = this;
-
   var player = new Player(options);
-
-  /* 지금은 1인용이라 주석이지만 나중에는 추가 할 것 이다.
-  var response = {
-      client_id: options.id,
-      room_id: self.room_id,
-      broadcast: true,
-      time: Date.now(),
-      seed: player.randomSeed,
-      type: Util.ACTION_TYPE.CONNECTION,
-      message: options.mapsize
-  }
-
-  self.emit('response', response)
-
-
-      // 다른 플레이어들의 history를 수집한다.
-      var otherplayers = []
-      for (var key in self.players) {
-          if (self.players.hasOwnProperty(key)) {
-              var tempplayer = self.players[key]
-              otherplayers.push(tempplayer.history)
-          }
-      }
-      if (otherplayers.length > 0) {
-          // 해당 클라이언트의 데이터와 otherplayers의 history를 response에 담아서 해당 클라이언트에게 보낸다.
-          var response = {
-              client_id: player.id,
-              room_id: self.room_id,
-              broadcast: false,
-              time: Date.now(),
-              seed: player.randomSeed,
-              type: Util.ACTION_TYPE.STATE_RESTORE,
-              message: otherplayers
-          }
-          self.emit('response', response)
-      }
-  */
-
-  // 해당 player를 배열에 넣는다.
+  self.playerCnt++;
+  if(self.clientId === null ) self.clientId = options.id;
   self.players[options.id] = player;
+};
+
+FroggerGame.prototype.deletePlayer = function(options) {
+  var self = this;
+  // 추가적이 행위가 필요할 수 있다.
+  self.playerCnt--;
+  delete self.players[options.id];
+};
+
+FroggerGame.prototype.getPlayer = function() {
+  var self = this;
+  if(self.clientId !== null ) return self.players[self.clientId];
+  else return null;
 };
 
 FroggerGame.prototype.initGame = function() {
   var self = this;
   // 일단 난 history 전송 안하고 이것만 한다.
-  self.ChangeGameState(Util.GAMESTATES.READY); //0=not started, 1=playing, 2=game over
+  self.gameState = 1;//0=not started, 1=playing, 2=game over
   self.level = 1;
 
   self.gems = new Gems();
-  self.players = {};
-
   self.bug1 = new Enemy();
   self.bug2 = new Enemy();
   self.bug3 = new Enemy();
@@ -96,72 +61,35 @@ FroggerGame.prototype.initGame = function() {
 
   self.popup = new Popup();
 };
-
-////////////////////서버/////////////////////
-// 클라이언트에서 들어온 이벤트를 관리한다.
-FroggerGame.prototype.clientEventHandler = function(message) {
-  var self = this;
-  // 해당 클라이언트의 game 객체를 찾는다.
-  var player = self.players[message.client_id];
-
-  if (self.gameState == Util.GAMESTATES.READY) {
-    if (message.type == Util.ACTION_TYPE.ACTION_MADE) {
-      // GameLogic의 syncAction을 통해 데이터를 동기화 한다.
-      // 현재 client 의 x,y에서 클라이언트에서 온
-      // 인덱스 체크, 다른 플레이어 체크 -> true가 나와야만 함
-      // 클라이언트에서는 인덱스가 넘어가지 않거나 다른 플레이어가 없는 방향으로만 움직 일 것이기 때문
-      // 현재 서버에 있는 클라이언트의 위치를 fromPos, 클라이언트에서 온 위치 변화량을 deltaX,deltaY;
-      // 나중엔 이 부분이 if문으로 판단 되어 restore할지 말지를 결정
-      if (!self.playerUpdate(player, message.deltaX, message.deltaY)) {
-        // type을 바꾼다던지 해서 client에서 가지고 있는 history로 restore 하게 한다.
-        console.log('playerUpdate false');
-      }
-
-      var response = {
-        client_id: player.id,
-        room_id: self.room_id,
-        // 이걸 true로 만들어야 다른 플레이어와 위치 공유
-        broadcast: false,
-        seed: message.seed,
-        type: message.type,
-        message: message.message
-      };
-      // 다른 플레이어에게 해당 클라이언트의 움직임 정보를 전송한다.
-      self.emit('response', response);
-    }
-  } else {
-    //console.log('ignore client action: ' + JSON.stringify(message));
-  }
-};
-
+// 클라이언트에서만 한다.
 FroggerGame.prototype.checkCollisions = function() {
   var self = this;
-  if (self.player.invincible === false && self.gameState == Util.GAMESTATES.READY) {
+  var player = self.players[self.clientId];
+  if (player.invincible === false && self.gameState == 1) {
     for (i = 0; i < self.allEnemies.length; i++) {
       var enemy = self.allEnemies[i];
-      // bounding box collision detection
-      if (self.player.x < enemy.x + enemy.width && self.player.x + enemy.width > enemy.x &&
-        self.player.y < enemy.y + enemy.height && self.player.y + self.player.height > enemy.y) {
-        self.player.lives -= 1;
-        if (self.player.lives === 0) {
+      if (player.x < enemy.x + enemy.width && player.x + enemy.width > enemy.x &&
+        player.y < enemy.y + enemy.height && player.y + player.height > enemy.y) {
+        player.lives -= 1;
+        if (player.lives === 0) {
           // 여기서도 서버에서 뭔가 처리 해 주어야할 부분이 있음
           // emit을 통해 서버로
-          self.ChangeGameState(Util.GAMESTATES.FINISH);
+          self.gameState = 2;
           return;
         } else {
-          self.player.initialize();
+          player.initialize();
           return;
         }
       }
     }
   }
 };
-
-FroggerGame.prototype.handleInput = function(id, key) {
+// 클라이언트에서만 한다.
+FroggerGame.prototype.handleInput = function(key) {
   var self = this;
   var deltaX = 0,
     deltaY = 0;
-  if (self.gameState == Util.GAMESTATES.READY) { //while playing the game
+  if (self.gameState == 1) { //while playing the game
     switch (key) {
       case 'left':
         deltaX = -1;
@@ -177,7 +105,8 @@ FroggerGame.prototype.handleInput = function(id, key) {
         break;
     }
     // updateAll에서 update시키면 쓸데없이 많은 비교를 하게 된다.
-    self.playerUpdate(self.players[id], deltaX, deltaY);
+    self.playerUpdate(self.players[self.clientId], deltaX, deltaY);
+    console.log(self.players[self.clientId]);
   }
   /*
   else if (self.gameState == Util.GAMESTATES.INIT) { //to start the game
@@ -246,7 +175,7 @@ FroggerGame.prototype.playerUpdate = function(player, deltaX, deltaY) {
       break;
   }
 
-  if (pickup !== 0) self.gem.gemCnt--;
+  if (pickup !== 0 && pickup !== undefined) self.gems.gemCnt--;
   //cell is now empty
   // 여기서서버로 알려서 다른 클라이언트에게 알려야겠다.
   self.gems.gemGrid[player.row][player.col] = 0;
@@ -254,19 +183,19 @@ FroggerGame.prototype.playerUpdate = function(player, deltaX, deltaY) {
   player.x = player.col * 100;
   player.y = player.row * 83 - 30;
 
-  if (self.gem.gemCnt <= 0) {
-    console.log('levelUP!');
+  if (self.gems.gemCnt <= 0) {
+    self.level++;
     self.gems.initialize();
     player.initialize();
     self.allEnemies.forEach(function(enemy) {
-      enemy.initialize();
+      enemy.initialize(self.gameState,self.level);
     });
   }
 };
 
 FroggerGame.prototype.checkBound = function(position, deltaX, deltaY) {
-  var x = position.x + delatas.x,
-    y = position.y + deltas.y;
+  var x = position.x + deltaX,
+    y = position.y + deltaY;
   if (y > 5 || x > 4 || x < 0 || y < 0) return false;
   return true;
 };
@@ -274,8 +203,8 @@ FroggerGame.prototype.checkBound = function(position, deltaX, deltaY) {
 FroggerGame.prototype.checkOtherPlayers = function(position, deltaX, deltaY) {
   var self = this;
 
-  var x = position.x + delatas.x,
-    y = position.y + deltas.y;
+  var x = position.x + deltaX,
+    y = position.y + deltaY;
 
     self.players.forEach(function(player){
       if(player.col === x && player.row === y) return false;

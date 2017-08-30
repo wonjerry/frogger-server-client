@@ -15,7 +15,6 @@ ClientManager.prototype.init = function(){
 
   self.socket = SocketIO(window.location.hostname + ':' + window.location.port);
   self.setupSocket();
-  self.main = new Main(self.socket.id);
 };
 
 ClientManager.prototype.setupSocket = function(){
@@ -27,16 +26,18 @@ ClientManager.prototype.setupSocket = function(){
   });
 
   self.socket.on('game packet', self.socketHandler.bind(self));
-  self.socket.on('room_id', function(message){
-    console.log('room_id : ' + message);
+
+  self.socket.on('welcome', function(message){
+    self.main = new Main({ id : self.socket.id , seed : message.seed });
+    self.main.startGame();
   });
 
   self.socket.emit('join', 'hello');
-
-  self.main.startGame();
 };
 
 ClientManager.prototype.socketHandler = function(message){
   var self = this;
-  console.log(message);
+  // 여기서 이제 다른 player의 데이터를 동기화 하거나
+  //
+  console.log(message.message);
 };

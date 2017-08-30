@@ -12,7 +12,6 @@ var roomManager = new RoomManager(io);
 io.on('connection', function(socket) {
   socket.on('join', function(message) {
       // attach room manager
-      console.log(message);
       roomManager.requestGameRoom(socket);
   });
 

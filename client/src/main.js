@@ -1,9 +1,8 @@
 var DrawModule = require('./FroggerGameBoard');
 
-function Main(id) {
+function Main(gameInfo) {
   var self = this;
   if (!(self instanceof Main)) return new Main(id);
-  self.id = id || 'offline';
   self.allowedKeys = {
     37: 'left',
     38: 'up',
@@ -15,6 +14,8 @@ function Main(id) {
 
   self.p5sketch = function(p) {
     drawObj = new DrawModule();
+    drawObj.gameSetting(gameInfo);
+
     p.preload = function() {
       drawObj.init(p);
     };
@@ -30,13 +31,14 @@ function Main(id) {
     };
 
     p.keyPressed = function() {
-      drawObj.game.handleInput(self.id,allowedKeys[p.keyCode]);
+      drawObj.game.handleInput(self.allowedKeys[p.keyCode]);
     };
 
   };
 }
 
 Main.prototype.startGame = function() {
+  var self = this;
   new p5(self.p5sketch, 'myp5sketch');
 };
 

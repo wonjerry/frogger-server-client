@@ -2,6 +2,8 @@
 var Player = function(options) {
   var self = this;
   self.initialize();
+  self.width = 50;
+  self.height = 60;
   //player object will hold scores for the game
   self.score = 0;
   self.lives = 3;
@@ -24,6 +26,14 @@ Player.prototype.getPosition = function() {
   return {
     x : self.col,
     y : self.row
+  };
+};
+
+Player.prototype.getBoardPosition = function() {
+  var self = this;
+  return {
+    x : self.x,
+    y : self.y
   };
 };
 
