@@ -1,6 +1,310 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 
 },{}],2:[function(require,module,exports){
+// Copyright Joyent, Inc. and other Node contributors.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the
+// "Software"), to deal in the Software without restriction, including
+// without limitation the rights to use, copy, modify, merge, publish,
+// distribute, sublicense, and/or sell copies of the Software, and to permit
+// persons to whom the Software is furnished to do so, subject to the
+// following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+// NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+// OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+// USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+function EventEmitter() {
+  this._events = this._events || {};
+  this._maxListeners = this._maxListeners || undefined;
+}
+module.exports = EventEmitter;
+
+// Backwards-compat with node 0.10.x
+EventEmitter.EventEmitter = EventEmitter;
+
+EventEmitter.prototype._events = undefined;
+EventEmitter.prototype._maxListeners = undefined;
+
+// By default EventEmitters will print a warning if more than 10 listeners are
+// added to it. This is a useful default which helps finding memory leaks.
+EventEmitter.defaultMaxListeners = 10;
+
+// Obviously not all Emitters should be limited to 10. This function allows
+// that to be increased. Set to zero for unlimited.
+EventEmitter.prototype.setMaxListeners = function(n) {
+  if (!isNumber(n) || n < 0 || isNaN(n))
+    throw TypeError('n must be a positive number');
+  this._maxListeners = n;
+  return this;
+};
+
+EventEmitter.prototype.emit = function(type) {
+  var er, handler, len, args, i, listeners;
+
+  if (!this._events)
+    this._events = {};
+
+  // If there is no 'error' event listener then throw.
+  if (type === 'error') {
+    if (!this._events.error ||
+        (isObject(this._events.error) && !this._events.error.length)) {
+      er = arguments[1];
+      if (er instanceof Error) {
+        throw er; // Unhandled 'error' event
+      } else {
+        // At least give some kind of context to the user
+        var err = new Error('Uncaught, unspecified "error" event. (' + er + ')');
+        err.context = er;
+        throw err;
+      }
+    }
+  }
+
+  handler = this._events[type];
+
+  if (isUndefined(handler))
+    return false;
+
+  if (isFunction(handler)) {
+    switch (arguments.length) {
+      // fast cases
+      case 1:
+        handler.call(this);
+        break;
+      case 2:
+        handler.call(this, arguments[1]);
+        break;
+      case 3:
+        handler.call(this, arguments[1], arguments[2]);
+        break;
+      // slower
+      default:
+        args = Array.prototype.slice.call(arguments, 1);
+        handler.apply(this, args);
+    }
+  } else if (isObject(handler)) {
+    args = Array.prototype.slice.call(arguments, 1);
+    listeners = handler.slice();
+    len = listeners.length;
+    for (i = 0; i < len; i++)
+      listeners[i].apply(this, args);
+  }
+
+  return true;
+};
+
+EventEmitter.prototype.addListener = function(type, listener) {
+  var m;
+
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  if (!this._events)
+    this._events = {};
+
+  // To avoid recursion in the case that type === "newListener"! Before
+  // adding it to the listeners, first emit "newListener".
+  if (this._events.newListener)
+    this.emit('newListener', type,
+              isFunction(listener.listener) ?
+              listener.listener : listener);
+
+  if (!this._events[type])
+    // Optimize the case of one listener. Don't need the extra array object.
+    this._events[type] = listener;
+  else if (isObject(this._events[type]))
+    // If we've already got an array, just append.
+    this._events[type].push(listener);
+  else
+    // Adding the second element, need to change to array.
+    this._events[type] = [this._events[type], listener];
+
+  // Check for listener leak
+  if (isObject(this._events[type]) && !this._events[type].warned) {
+    if (!isUndefined(this._maxListeners)) {
+      m = this._maxListeners;
+    } else {
+      m = EventEmitter.defaultMaxListeners;
+    }
+
+    if (m && m > 0 && this._events[type].length > m) {
+      this._events[type].warned = true;
+      console.error('(node) warning: possible EventEmitter memory ' +
+                    'leak detected. %d listeners added. ' +
+                    'Use emitter.setMaxListeners() to increase limit.',
+                    this._events[type].length);
+      if (typeof console.trace === 'function') {
+        // not supported in IE 10
+        console.trace();
+      }
+    }
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.on = EventEmitter.prototype.addListener;
+
+EventEmitter.prototype.once = function(type, listener) {
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  var fired = false;
+
+  function g() {
+    this.removeListener(type, g);
+
+    if (!fired) {
+      fired = true;
+      listener.apply(this, arguments);
+    }
+  }
+
+  g.listener = listener;
+  this.on(type, g);
+
+  return this;
+};
+
+// emits a 'removeListener' event iff the listener was removed
+EventEmitter.prototype.removeListener = function(type, listener) {
+  var list, position, length, i;
+
+  if (!isFunction(listener))
+    throw TypeError('listener must be a function');
+
+  if (!this._events || !this._events[type])
+    return this;
+
+  list = this._events[type];
+  length = list.length;
+  position = -1;
+
+  if (list === listener ||
+      (isFunction(list.listener) && list.listener === listener)) {
+    delete this._events[type];
+    if (this._events.removeListener)
+      this.emit('removeListener', type, listener);
+
+  } else if (isObject(list)) {
+    for (i = length; i-- > 0;) {
+      if (list[i] === listener ||
+          (list[i].listener && list[i].listener === listener)) {
+        position = i;
+        break;
+      }
+    }
+
+    if (position < 0)
+      return this;
+
+    if (list.length === 1) {
+      list.length = 0;
+      delete this._events[type];
+    } else {
+      list.splice(position, 1);
+    }
+
+    if (this._events.removeListener)
+      this.emit('removeListener', type, listener);
+  }
+
+  return this;
+};
+
+EventEmitter.prototype.removeAllListeners = function(type) {
+  var key, listeners;
+
+  if (!this._events)
+    return this;
+
+  // not listening for removeListener, no need to emit
+  if (!this._events.removeListener) {
+    if (arguments.length === 0)
+      this._events = {};
+    else if (this._events[type])
+      delete this._events[type];
+    return this;
+  }
+
+  // emit removeListener for all listeners on all events
+  if (arguments.length === 0) {
+    for (key in this._events) {
+      if (key === 'removeListener') continue;
+      this.removeAllListeners(key);
+    }
+    this.removeAllListeners('removeListener');
+    this._events = {};
+    return this;
+  }
+
+  listeners = this._events[type];
+
+  if (isFunction(listeners)) {
+    this.removeListener(type, listeners);
+  } else if (listeners) {
+    // LIFO order
+    while (listeners.length)
+      this.removeListener(type, listeners[listeners.length - 1]);
+  }
+  delete this._events[type];
+
+  return this;
+};
+
+EventEmitter.prototype.listeners = function(type) {
+  var ret;
+  if (!this._events || !this._events[type])
+    ret = [];
+  else if (isFunction(this._events[type]))
+    ret = [this._events[type]];
+  else
+    ret = this._events[type].slice();
+  return ret;
+};
+
+EventEmitter.prototype.listenerCount = function(type) {
+  if (this._events) {
+    var evlistener = this._events[type];
+
+    if (isFunction(evlistener))
+      return 1;
+    else if (evlistener)
+      return evlistener.length;
+  }
+  return 0;
+};
+
+EventEmitter.listenerCount = function(emitter, type) {
+  return emitter.listenerCount(type);
+};
+
+function isFunction(arg) {
+  return typeof arg === 'function';
+}
+
+function isNumber(arg) {
+  return typeof arg === 'number';
+}
+
+function isObject(arg) {
+  return typeof arg === 'object' && arg !== null;
+}
+
+function isUndefined(arg) {
+  return arg === void 0;
+}
+
+},{}],3:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -186,7 +490,7 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 // A library of seedable RNGs implemented in Javascript.
 //
 // Usage:
@@ -248,7 +552,7 @@ sr.tychei = tychei;
 
 module.exports = sr;
 
-},{"./lib/alea":4,"./lib/tychei":5,"./lib/xor128":6,"./lib/xor4096":7,"./lib/xorshift7":8,"./lib/xorwow":9,"./seedrandom":10}],4:[function(require,module,exports){
+},{"./lib/alea":5,"./lib/tychei":6,"./lib/xor128":7,"./lib/xor4096":8,"./lib/xorshift7":9,"./lib/xorwow":10,"./seedrandom":11}],5:[function(require,module,exports){
 // A port of an algorithm by Johannes Baagøe <baagoe@baagoe.com>, 2010
 // http://baagoe.com/en/RandomMusings/javascript/
 // https://github.com/nquinlan/better-random-numbers-for-javascript-mirror
@@ -364,7 +668,7 @@ if (module && module.exports) {
 
 
 
-},{}],5:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 // A Javascript implementaion of the "Tyche-i" prng algorithm by
 // Samuel Neves and Filipe Araujo.
 // See https://eden.dei.uc.pt/~sneves/pubs/2011-snfa2.pdf
@@ -469,7 +773,7 @@ if (module && module.exports) {
 
 
 
-},{}],6:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 // A Javascript implementaion of the "xor128" prng algorithm by
 // George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
 
@@ -552,7 +856,7 @@ if (module && module.exports) {
 
 
 
-},{}],7:[function(require,module,exports){
+},{}],8:[function(require,module,exports){
 // A Javascript implementaion of Richard Brent's Xorgens xor4096 algorithm.
 //
 // This fast non-cryptographic random number generator is designed for
@@ -700,7 +1004,7 @@ if (module && module.exports) {
   (typeof define) == 'function' && define   // present with an AMD loader
 );
 
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 // A Javascript implementaion of the "xorshift7" algorithm by
 // François Panneton and Pierre L'ecuyer:
 // "On the Xorgshift Random Number Generators"
@@ -799,7 +1103,7 @@ if (module && module.exports) {
 );
 
 
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 // A Javascript implementaion of the "xorwow" prng algorithm by
 // George Marsaglia.  See http://www.jstatsoft.org/v08/i14/paper
 
@@ -887,7 +1191,7 @@ if (module && module.exports) {
 
 
 
-},{}],10:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 /*
 Copyright 2014 David Bau.
 
@@ -1136,7 +1440,7 @@ if ((typeof module) == 'object' && module.exports) {
   Math    // math: package containing random, pow, and seedrandom
 );
 
-},{"crypto":1}],11:[function(require,module,exports){
+},{"crypto":1}],12:[function(require,module,exports){
 module.exports = after
 
 function after(count, callback, err_cb) {
@@ -1166,7 +1470,7 @@ function after(count, callback, err_cb) {
 
 function noop() {}
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 /**
  * An abstraction for slicing an arraybuffer even when
  * ArrayBuffer.prototype.slice is not supported
@@ -1197,7 +1501,7 @@ module.exports = function(arraybuffer, start, end) {
   return result.buffer;
 };
 
-},{}],13:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 
 /**
  * Expose `Backoff`.
@@ -1284,7 +1588,7 @@ Backoff.prototype.setJitter = function(jitter){
 };
 
 
-},{}],14:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 /*
  * base64-arraybuffer
  * https://github.com/niklasvh/base64-arraybuffer
@@ -1353,7 +1657,7 @@ Backoff.prototype.setJitter = function(jitter){
   };
 })();
 
-},{}],15:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 (function (global){
 /**
  * Create a blob builder even when vendor prefixes exist
@@ -1453,7 +1757,7 @@ module.exports = (function() {
 })();
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 /**
  * Slice reference.
  */
@@ -1478,7 +1782,7 @@ module.exports = function(obj, fn){
   }
 };
 
-},{}],17:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -1643,7 +1947,7 @@ Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
 };
 
-},{}],18:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 
 module.exports = function(a, b){
   var fn = function(){};
@@ -1651,7 +1955,7 @@ module.exports = function(a, b){
   a.prototype = new fn;
   a.prototype.constructor = a;
 };
-},{}],19:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 (function (process){
 /**
  * This is the web browser implementation of `debug()`.
@@ -1840,7 +2144,7 @@ function localstorage() {
 }
 
 }).call(this,require('_process'))
-},{"./debug":20,"_process":2}],20:[function(require,module,exports){
+},{"./debug":21,"_process":3}],21:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -2044,11 +2348,11 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":38}],21:[function(require,module,exports){
+},{"ms":40}],22:[function(require,module,exports){
 
 module.exports = require('./lib/index');
 
-},{"./lib/index":22}],22:[function(require,module,exports){
+},{"./lib/index":23}],23:[function(require,module,exports){
 
 module.exports = require('./socket');
 
@@ -2060,7 +2364,7 @@ module.exports = require('./socket');
  */
 module.exports.parser = require('engine.io-parser');
 
-},{"./socket":23,"engine.io-parser":31}],23:[function(require,module,exports){
+},{"./socket":24,"engine.io-parser":32}],24:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -2808,7 +3112,7 @@ Socket.prototype.filterUpgrades = function (upgrades) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./transport":24,"./transports/index":25,"component-emitter":17,"debug":19,"engine.io-parser":31,"indexof":36,"parsejson":39,"parseqs":40,"parseuri":41}],24:[function(require,module,exports){
+},{"./transport":25,"./transports/index":26,"component-emitter":18,"debug":20,"engine.io-parser":32,"indexof":37,"parsejson":41,"parseqs":42,"parseuri":43}],25:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -2967,7 +3271,7 @@ Transport.prototype.onClose = function () {
   this.emit('close');
 };
 
-},{"component-emitter":17,"engine.io-parser":31}],25:[function(require,module,exports){
+},{"component-emitter":18,"engine.io-parser":32}],26:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies
@@ -3024,7 +3328,7 @@ function polling (opts) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling-jsonp":26,"./polling-xhr":27,"./websocket":29,"xmlhttprequest-ssl":30}],26:[function(require,module,exports){
+},{"./polling-jsonp":27,"./polling-xhr":28,"./websocket":30,"xmlhttprequest-ssl":31}],27:[function(require,module,exports){
 (function (global){
 
 /**
@@ -3259,7 +3563,7 @@ JSONPPolling.prototype.doWrite = function (data, fn) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":28,"component-inherit":18}],27:[function(require,module,exports){
+},{"./polling":29,"component-inherit":19}],28:[function(require,module,exports){
 (function (global){
 /**
  * Module requirements.
@@ -3676,7 +3980,7 @@ function unloadHandler () {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":28,"component-emitter":17,"component-inherit":18,"debug":19,"xmlhttprequest-ssl":30}],28:[function(require,module,exports){
+},{"./polling":29,"component-emitter":18,"component-inherit":19,"debug":20,"xmlhttprequest-ssl":31}],29:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -3923,7 +4227,7 @@ Polling.prototype.uri = function () {
   return schema + '://' + (ipv6 ? '[' + this.hostname + ']' : this.hostname) + port + this.path + query;
 };
 
-},{"../transport":24,"component-inherit":18,"debug":19,"engine.io-parser":31,"parseqs":40,"xmlhttprequest-ssl":30,"yeast":51}],29:[function(require,module,exports){
+},{"../transport":25,"component-inherit":19,"debug":20,"engine.io-parser":32,"parseqs":42,"xmlhttprequest-ssl":31,"yeast":53}],30:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -4213,7 +4517,7 @@ WS.prototype.check = function () {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../transport":24,"component-inherit":18,"debug":19,"engine.io-parser":31,"parseqs":40,"ws":1,"yeast":51}],30:[function(require,module,exports){
+},{"../transport":25,"component-inherit":19,"debug":20,"engine.io-parser":32,"parseqs":42,"ws":1,"yeast":53}],31:[function(require,module,exports){
 (function (global){
 // browser shim for xmlhttprequest module
 
@@ -4254,7 +4558,7 @@ module.exports = function (opts) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"has-cors":35}],31:[function(require,module,exports){
+},{"has-cors":36}],32:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -4864,7 +5168,7 @@ exports.decodePayloadAsBinary = function (data, binaryType, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./keys":32,"./utf8":33,"after":11,"arraybuffer.slice":12,"base64-arraybuffer":14,"blob":15,"has-binary2":34}],32:[function(require,module,exports){
+},{"./keys":33,"./utf8":34,"after":12,"arraybuffer.slice":13,"base64-arraybuffer":15,"blob":16,"has-binary2":35}],33:[function(require,module,exports){
 
 /**
  * Gets the keys for an object.
@@ -4885,7 +5189,7 @@ module.exports = Object.keys || function keys (obj){
   return arr;
 };
 
-},{}],33:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 (function (global){
 /*! https://mths.be/utf8js v2.1.2 by @mathias */
 ;(function(root) {
@@ -5144,7 +5448,7 @@ module.exports = Object.keys || function keys (obj){
 }(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],34:[function(require,module,exports){
+},{}],35:[function(require,module,exports){
 (function (global){
 /* global Blob File */
 
@@ -5210,7 +5514,7 @@ function hasBinary (obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"isarray":37}],35:[function(require,module,exports){
+},{"isarray":39}],36:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -5229,7 +5533,7 @@ try {
   module.exports = false;
 }
 
-},{}],36:[function(require,module,exports){
+},{}],37:[function(require,module,exports){
 
 var indexOf = [].indexOf;
 
@@ -5240,14 +5544,39 @@ module.exports = function(arr, obj){
   }
   return -1;
 };
-},{}],37:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
+if (typeof Object.create === 'function') {
+  // implementation from standard node.js 'util' module
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    ctor.prototype = Object.create(superCtor.prototype, {
+      constructor: {
+        value: ctor,
+        enumerable: false,
+        writable: true,
+        configurable: true
+      }
+    });
+  };
+} else {
+  // old school shim for old browsers
+  module.exports = function inherits(ctor, superCtor) {
+    ctor.super_ = superCtor
+    var TempCtor = function () {}
+    TempCtor.prototype = superCtor.prototype
+    ctor.prototype = new TempCtor()
+    ctor.prototype.constructor = ctor
+  }
+}
+
+},{}],39:[function(require,module,exports){
 var toString = {}.toString;
 
 module.exports = Array.isArray || function (arr) {
   return toString.call(arr) == '[object Array]';
 };
 
-},{}],38:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -5401,7 +5730,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],39:[function(require,module,exports){
+},{}],41:[function(require,module,exports){
 (function (global){
 /**
  * JSON parse.
@@ -5436,7 +5765,7 @@ module.exports = function parsejson(data) {
   }
 };
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],40:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 /**
  * Compiles a querystring
  * Returns string representation of the object
@@ -5475,7 +5804,7 @@ exports.decode = function(qs){
   return qry;
 };
 
-},{}],41:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 /**
  * Parses an URI
  *
@@ -5516,7 +5845,7 @@ module.exports = function parseuri(str) {
     return uri;
 };
 
-},{}],42:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -5612,7 +5941,7 @@ exports.connect = lookup;
 exports.Manager = require('./manager');
 exports.Socket = require('./socket');
 
-},{"./manager":43,"./socket":45,"./url":46,"debug":19,"socket.io-parser":48}],43:[function(require,module,exports){
+},{"./manager":45,"./socket":47,"./url":48,"debug":20,"socket.io-parser":50}],45:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -6187,7 +6516,7 @@ Manager.prototype.onreconnect = function () {
   this.emitAll('reconnect', attempt);
 };
 
-},{"./on":44,"./socket":45,"backo2":13,"component-bind":16,"component-emitter":17,"debug":19,"engine.io-client":21,"indexof":36,"socket.io-parser":48}],44:[function(require,module,exports){
+},{"./on":46,"./socket":47,"backo2":14,"component-bind":17,"component-emitter":18,"debug":20,"engine.io-client":22,"indexof":37,"socket.io-parser":50}],46:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -6213,7 +6542,7 @@ function on (obj, ev, fn) {
   };
 }
 
-},{}],45:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -6633,7 +6962,7 @@ Socket.prototype.compress = function (compress) {
   return this;
 };
 
-},{"./on":44,"component-bind":16,"component-emitter":17,"debug":19,"parseqs":40,"socket.io-parser":48,"to-array":50}],46:[function(require,module,exports){
+},{"./on":46,"component-bind":17,"component-emitter":18,"debug":20,"parseqs":42,"socket.io-parser":50,"to-array":52}],48:[function(require,module,exports){
 (function (global){
 
 /**
@@ -6712,7 +7041,7 @@ function url (uri, loc) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"debug":19,"parseuri":41}],47:[function(require,module,exports){
+},{"debug":20,"parseuri":43}],49:[function(require,module,exports){
 (function (global){
 /*global Blob,File*/
 
@@ -6857,7 +7186,7 @@ exports.removeBlobs = function(data, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./is-buffer":49,"isarray":37}],48:[function(require,module,exports){
+},{"./is-buffer":51,"isarray":39}],50:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -7259,7 +7588,7 @@ function error() {
   };
 }
 
-},{"./binary":47,"./is-buffer":49,"component-emitter":17,"debug":19,"has-binary2":34}],49:[function(require,module,exports){
+},{"./binary":49,"./is-buffer":51,"component-emitter":18,"debug":20,"has-binary2":35}],51:[function(require,module,exports){
 (function (global){
 
 module.exports = isBuf;
@@ -7276,7 +7605,7 @@ function isBuf(obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],50:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 module.exports = toArray
 
 function toArray(list, index) {
@@ -7291,7 +7620,7 @@ function toArray(list, index) {
     return array
 }
 
-},{}],51:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 'use strict';
 
 var alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_'.split('')
@@ -7361,7 +7690,7 @@ yeast.encode = encode;
 yeast.decode = decode;
 module.exports = yeast;
 
-},{}],52:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 // Enemies our player must avoid
 var Enemy = function() {
   var self = this;
@@ -7405,321 +7734,374 @@ Enemy.prototype.getPosition = function() {
 
 module.exports = Enemy;
 
-},{}],53:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 var FroggerGame = require('./FroggerGameLogic');
 var p5Object;
 var _dir = './../images/';
 
 function DrawFroggerGame() {
-  if (!(this instanceof DrawFroggerGame)) return new DrawFroggerGame();
+    if (!(this instanceof DrawFroggerGame)) return new DrawFroggerGame();
 }
 
-DrawFroggerGame.prototype.init = function(p) {
-  var self = this;
-  p5Object = p;
-  self.width = 505;
-  self.height = 606;
+DrawFroggerGame.prototype.init = function (p) {
+    var self = this;
+    p5Object = p;
+    self.width = 505;
+    self.height = 606;
 
-  self.heartImg = p5Object.loadImage(_dir + 'Heart.png');
-  self.starImg = p5Object.loadImage(_dir + 'Star.png');
-  // map area Images
-  self.waterImg = p5Object.loadImage(_dir + 'water-block.png');
-  self.stoneImg = p5Object.loadImage(_dir + 'stone-block.png');
-  self.grassImg = p5Object.loadImage(_dir + 'grass-block.png');
-  self.rowImages = [self.waterImg, self.stoneImg, self.stoneImg, self.stoneImg, self.grassImg, self.grassImg];
-  // item Images
-  self.blueGemImg = p5Object.loadImage(_dir + 'gem-blue.png');
-  self.greenGemImg = p5Object.loadImage(_dir + 'gem-green.png');
-  self.orangeGemImg = p5Object.loadImage(_dir + 'gem-orange.png');
-  // enemy and player image
-  self.enemyImg = p5Object.loadImage(_dir + 'enemy-bug.png');
-  self.playerImg = p5Object.loadImage(_dir + 'char-boy.png');
-
-  self.lastTime = Date.now();
+    self.heartImg = p5Object.loadImage(_dir + 'Heart.png');
+    self.starImg = p5Object.loadImage(_dir + 'Star.png');
+    // map area Images
+    self.waterImg = p5Object.loadImage(_dir + 'water-block.png');
+    self.stoneImg = p5Object.loadImage(_dir + 'stone-block.png');
+    self.grassImg = p5Object.loadImage(_dir + 'grass-block.png');
+    self.rowImages = [self.waterImg, self.stoneImg, self.stoneImg, self.stoneImg, self.grassImg, self.grassImg];
+    // item Images
+    self.blueGemImg = p5Object.loadImage(_dir + 'gem-blue.png');
+    self.greenGemImg = p5Object.loadImage(_dir + 'gem-green.png');
+    self.orangeGemImg = p5Object.loadImage(_dir + 'gem-orange.png');
+    // enemy and player image
+    self.enemyImg = p5Object.loadImage(_dir + 'enemy-bug.png');
+    self.playerImg = p5Object.loadImage(_dir + 'char-boy.png');
 };
 
-DrawFroggerGame.prototype.gameSetting = function(settings) {
+DrawFroggerGame.prototype.gameSetting = function (settings) {
     var self = this;
     self.game = new FroggerGame(settings);
-    self.game.addPlayer({ id : settings.id });
-    self.game.initGame();
+
 };
 
-DrawFroggerGame.prototype.getScale = function() {
-  var self = this;
-  return {
-    w: self.width,
-    h: self.height
-  };
+DrawFroggerGame.prototype.getScale = function () {
+    var self = this;
+    return {
+        w: self.width,
+        h: self.height
+    };
 };
 
-DrawFroggerGame.prototype.renderLoop = function() {
-  var self = this;
-  var now = Date.now(),
-    dt = (now - self.lastTime) / 1000.0;
+DrawFroggerGame.prototype.render = function (player,level,allEnemies,gameState,gems) {
+    var self = this;
 
-  /* Call our update/render functions, pass along the time delta to
-   * our update function since it may be used for smooth animation.
-   */
-  self.update(dt);
-  self.render();
-
-  /* Set our lastTime variable which is used to determine the time delta
-   * for the next time this function is called.
-   */
-  self.lastTime = now;
+    self.renderMap(gems);
+    self.renderInfo(player,level);
+    self.renderEntities(player,allEnemies,gameState);
 };
 
-DrawFroggerGame.prototype.render = function() {
-  var self = this;
-  if (self.game === null) return;
-  self.renderMap();
-  self.renderInfo();
-  self.renderEntities();
+DrawFroggerGame.prototype.renderEntities = function (player,allEnemies,gameState) {
+    var self = this;
+    /* Loop through all of the objects within the allEnemies array and call
+     * the render function you have defined.
+     */
+    self.enemyRender(allEnemies);
+    self.playerRender(player,gameState);
+    self.popupRender(gameState);
 };
 
-DrawFroggerGame.prototype.renderInfo = function() {
-  var self = this;
-  var player = self.game.getPlayer();
-  //render scores and lives at top of screen
-  p5Object.textFont('serif', [30]);
-  p5Object.textAlign(p5Object.LEFT);
-  p5Object.text("LEVEL: " + self.game.level, 10, 38);
-  p5Object.image(self.blueGemImg, 194, 1, 25, 42); // x,y,width,height
-  p5Object.text(player.score, 224, 38);
-  p5Object.image(self.heartImg, 294, 4, 25, 42);
-  p5Object.text(player.lives, 324, 38);
-  if (player.invincible === true) {
-    p5Object.image(self.starImg, 394, -15, 40, 69);
-  }
-};
-
-DrawFroggerGame.prototype.update = function(dt) {
-  var self = this;
-  if (self.game === null) return;
-  self.game.updateAll(dt);
-};
-
-DrawFroggerGame.prototype.renderMap = function() {
-  var self = this;
-  /* This array holds the relative URL to the image used
-   * for that particular row of the game level.
-   */
-  var numRows = 6,
-    numCols = 5,
-    row, col;
-
-  /* Loop through the number of rows and columns we've defined above
-   * and, using the rowImages array, draw the correct image for that
-   * portion of the "grid"
-   */
-  for (row = 0; row < numRows; row++) {
-    for (col = 0; col < numCols; col++) {
-      /* The drawImage function of the canvas' context element
-       * requires 3 parameters: the image to draw, the x coordinate
-       * to start drawing and the y coordinate to start drawing.
-       * We're using our Resources helpers to refer to our images
-       * so that we get the benefits of caching these images, since
-       * we're using them over and over.
-       */
-      p5Object.image(self.rowImages[row], col * 101, row * 83); // x,y,width,height
-      var gemType = self.game.gems.gemGrid[row][col];
-      switch (gemType) {
-        case 0:
-          break;
-        case 1:
-          p5Object.image(self.blueGemImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
-          break;
-        case 2:
-          p5Object.image(self.greenGemImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
-          break;
-        case 3:
-          p5Object.image(self.orangeGemImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
-          break;
-        case 4:
-          p5Object.image(self.heartImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
-          break;
-        case 5:
-          p5Object.image(self.starImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
-          break;
-      }
+DrawFroggerGame.prototype.renderInfo = function (player,level) {
+    var self = this;
+    //render scores and lives at top of screen
+    p5Object.textFont('serif', [30]);
+    p5Object.textAlign(p5Object.LEFT);
+    p5Object.text("LEVEL: " + level, 10, 38);
+    p5Object.image(self.blueGemImg, 194, 1, 25, 42); // x,y,width,height
+    p5Object.text(player.score, 224, 38);
+    p5Object.image(self.heartImg, 294, 4, 25, 42);
+    p5Object.text(player.lives, 324, 38);
+    if (player.invincible === true) {
+        p5Object.image(self.starImg, 394, -15, 40, 69);
     }
-  }
 };
 
-DrawFroggerGame.prototype.renderEntities = function() {
-  var self = this;
-  /* Loop through all of the objects within the allEnemies array and call
-   * the render function you have defined.
-   */
-  var gameState = self.game.gameState;
-  self.enemyRender();
-  self.playerRender(gameState);
-  self.popupRender(gameState);
+DrawFroggerGame.prototype.renderMap = function (gems) {
+    var self = this;
+    /* This array holds the relative URL to the image used
+     * for that particular row of the game level.
+     */
+    var numRows = 6,
+        numCols = 5,
+        row, col;
+
+    /* Loop through the number of rows and columns we've defined above
+     * and, using the rowImages array, draw the correct image for that
+     * portion of the "grid"
+     */
+    for (row = 0; row < numRows; row++) {
+        for (col = 0; col < numCols; col++) {
+            /* The drawImage function of the canvas' context element
+             * requires 3 parameters: the image to draw, the x coordinate
+             * to start drawing and the y coordinate to start drawing.
+             * We're using our Resources helpers to refer to our images
+             * so that we get the benefits of caching these images, since
+             * we're using them over and over.
+             */
+            p5Object.image(self.rowImages[row], col * 101, row * 83); // x,y,width,height
+            var gemType = gems[row][col];
+            switch (gemType) {
+                case 0:
+                    break;
+                case 1:
+                    p5Object.image(self.blueGemImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
+                    break;
+                case 2:
+                    p5Object.image(self.greenGemImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
+                    break;
+                case 3:
+                    p5Object.image(self.orangeGemImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
+                    break;
+                case 4:
+                    p5Object.image(self.heartImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
+                    break;
+                case 5:
+                    p5Object.image(self.starImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
+                    break;
+            }
+        }
+    }
 };
 
-DrawFroggerGame.prototype.playerRender = function(gameState) {
-  var self = this;
-  if (gameState == 1) { //player only shows during gameplay
+DrawFroggerGame.prototype.playerRender = function (player,gameState) {
+    var self = this;
+    if (gameState == 1) { //player only shows during gameplay
 
-    var playerPos = self.game.getPlayer().getBoardPosition();
-    p5Object.image(self.playerImg, playerPos.x, playerPos.y);
-  }
+        var playerPos = player.getBoardPosition();
+        p5Object.image(self.playerImg, playerPos.x, playerPos.y);
+    }
 };
 
-DrawFroggerGame.prototype.enemyRender = function() {
-  var self = this;
-  self.game.allEnemies.forEach(function(enemy) {
-    var enemyPos = enemy.getPosition();
-    p5Object.image(self.enemyImg, enemyPos.x, enemyPos.y);
-  });
+DrawFroggerGame.prototype.enemyRender = function (allEnemies) {
+    var self = this;
+    allEnemies.forEach(function (enemy) {
+        var enemyPos = enemy.getPosition();
+        p5Object.image(self.enemyImg, enemyPos.x, enemyPos.y);
+    });
 };
 
-DrawFroggerGame.prototype.popupRender = function(gameState) {
-  //if(gameState === 1) return;
-  /*
-  ctx.fillStyle = "white";
-  ctx.strokeStyle = "black";
-  ctx.lineWidth = 3;
-  ctx.strokeRect(52, 252, 400, 90);
-  ctx.fillRect(52, 252, 400, 90);
-  ctx.fillStyle = "black";
-  ctx.textAlign = "center";
-  ctx.font = "24px serif";
-  ctx.fillText(this.options[state], 252, 302);
-  */
+DrawFroggerGame.prototype.popupRender = function (gameState) {
+    //if(gameState === 1) return;
+    /*
+    ctx.fillStyle = "white";
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(52, 252, 400, 90);
+    ctx.fillRect(52, 252, 400, 90);
+    ctx.fillStyle = "black";
+    ctx.textAlign = "center";
+    ctx.font = "24px serif";
+    ctx.fillText(this.options[state], 252, 302);
+    */
 };
 module.exports = DrawFroggerGame;
 
-},{"./FroggerGameLogic":54}],54:[function(require,module,exports){
+},{"./FroggerGameLogic":56}],56:[function(require,module,exports){
 var Gems = require('./Gems');
 var Player = require('./Player');
 var Enemy = require('./Enemy');
 var Popup = require('./Popup');
 var SeedRandom = require('SeedRandom');
+var EventEmitter = require('events').EventEmitter;
+var inherits = require('inherits');
+
+inherits(FroggerGame, EventEmitter);
 
 // RommManager에서는 pushClient 할 떄 randomSeed를 받았지만
 // 내 게임에서는 FrooggerGame 만들 때 randomSeed를 받는다.
 // 클라이언트는 서버와 연결 시 초기에 randomSeed를 받는다.
 function FroggerGame(options) {
-  var self = this;
-  if (!(self instanceof FroggerGame)) return new FroggerGame(options);
-  self.gameState = 0; // 시퀀셜 진행
-  // game data를 초기화 한다.
-  self.players = [];
-  self.clientId = null;
-  self.randomSeed = options.seed || Date.now();
-  self.random = SeedRandom(self.randomSeed);
+    var self = this;
+    if (!(self instanceof FroggerGame)) return new FroggerGame(options);
+
+    self.gameState = 0; // 시퀀셜 진행
+
+    // game data를 초기화 한다.
+    self.players = [];
+    self.playerCnt = 0;
+    self.clientId = null;
+
+    self.randomSeed = options.seed || Date.now();
+    self.random = SeedRandom(self.randomSeed);
+
+    self.roomId = options.roomId;
+
+    self.messages = [];
+
+    self.key_right = false;
+    self.key_left = false;
+    self.key_up = false;
+    self.key_down = false;
+    self.sequenceNumber = 0;
+    self.pendingInputs = [];
 }
 
 // RoomManager에서 socket.id를 받는다.
 // options는 추가될 수 있음
 // 나중에 otherPlayer 들어오면 이거가지고 조정 해 줘야되는데 id만 받으면 안됨
-FroggerGame.prototype.addPlayer = function(options) {
-  var self = this;
-  var player = new Player(options);
-  if(self.clientId === null ) self.clientId = options.id;
-  self.players[options.id] = player;
+FroggerGame.prototype.addPlayer = function (options) {
+    var self = this;
+    self.playerCnt++;
+    // 서버와 클라이언트가 order를 적용하는 방식이 달라서 이렇게 했다.
+    options.order = options.order || self.playerCnt;
+
+    var player = new Player(options);
+    if (self.clientId === null) self.clientId = options.id;
+    self.players[options.id] = player;
 };
 
-FroggerGame.prototype.deletePlayer = function(options) {
-  var self = this;
-  // 추가적이 행위가 필요할 수 있다.
-  delete self.players[options.id];
+FroggerGame.prototype.deletePlayer = function (options) {
+    var self = this;
+    // 추가적이 행위가 필요할 수 있다.
+    self.playerCnt--;
+    delete self.players[options.id];
 };
 
-FroggerGame.prototype.getPlayer = function() {
-  var self = this;
-  if(self.clientId !== null ) return self.players[self.clientId];
-  else return null;
+FroggerGame.prototype.getPlayer = function () {
+    var self = this;
+    if (self.clientId !== null) return self.players[self.clientId];
+    else return null;
 };
 
-FroggerGame.prototype.initGame = function() {
-  var self = this;
-  // 일단 난 history 전송 안하고 이것만 한다.
-  self.gameState = 1;//0=not started, 1=playing, 2=game over
-  self.level = 1;
+FroggerGame.prototype.initGame = function () {
+    var self = this;
+    // 일단 난 history 전송 안하고 이것만 한다.
+    self.gameState = 1; //0=not started, 1=playing, 2=game over
+    self.level = 1;
 
-  self.gems = new Gems();
-  self.bug1 = new Enemy();
-  self.bug2 = new Enemy();
-  self.bug3 = new Enemy();
-  self.allEnemies = [self.bug1, self.bug2, self.bug3];
+    self.gems = new Gems();
+    self.bug1 = new Enemy();
+    self.bug2 = new Enemy();
+    self.bug3 = new Enemy();
+    self.allEnemies = [self.bug1, self.bug2, self.bug3];
 
-  self.bug1.initialize(self.gameState, self.level);
-  self.bug2.initialize(self.gameState, self.level);
-  self.bug3.initialize(self.gameState, self.level);
+    self.bug1.initialize(self.gameState, self.level);
+    self.bug2.initialize(self.gameState, self.level);
+    self.bug3.initialize(self.gameState, self.level);
 
-  self.popup = new Popup();
+    self.popup = new Popup();
 };
 // 클라이언트에서만 한다.
-FroggerGame.prototype.checkCollisions = function() {
-  var self = this;
-  var player = self.players[self.clientId];
-  if (player.invincible === false && self.gameState == 1) {
-    for (i = 0; i < self.allEnemies.length; i++) {
-      var enemy = self.allEnemies[i];
-      if (player.x < enemy.x + enemy.width && player.x + enemy.width > enemy.x &&
-        player.y < enemy.y + enemy.height && player.y + player.height > enemy.y) {
-        player.lives -= 1;
-        if (player.lives === 0) {
-          // 여기서도 서버에서 뭔가 처리 해 주어야할 부분이 있음
-          // emit을 통해 서버로
-          self.gameState = 2;
-          return;
-        } else {
-          player.initialize();
-          return;
+FroggerGame.prototype.checkCollisions = function () {
+    var self = this;
+    var player = self.players[self.clientId];
+    if (player.invincible === false && self.gameState == 1) {
+        for (i = 0; i < self.allEnemies.length; i++) {
+            var enemy = self.allEnemies[i];
+            if (player.x < enemy.x + enemy.width && player.x + enemy.width > enemy.x &&
+                player.y < enemy.y + enemy.height && player.y + player.height > enemy.y) {
+                player.lives -= 1;
+                if (player.lives === 0) {
+                    // 여기서도 서버에서 뭔가 처리 해 주어야할 부분이 있음
+                    // emit을 통해 서버로
+                    self.gameState = 2;
+                    return;
+                } else {
+                    player.initialize();
+                    return;
+                }
+            }
         }
+    }
+};
+// 클라이언트에서만 한다.
+
+FroggerGame.prototype.processServerMessages = function () {
+    while(true){
+
+        //var message = self.messages.splice(0,1);
+        //if(!message || message.length === 0) return;
+
+        console.log(self.messages);
+
+    }
+};
+
+
+FroggerGame.prototype.processInput = function () {
+
+    var self = this;
+    var input = null;
+
+    if (self.key_left) {
+        input = {
+            x: -1,
+            y: 0
+        };
+    } else if (self.key_right) {
+        input = {
+            x: 1,
+            y: 0
+        };
+    } else if (self.key_up) {
+        input = {
+            x: 0,
+            y: -1
+        };
+    } else if (self.key_down) {
+        input = {
+            x: 0,
+            y: 1
+        };
+    } else {
+        return;
+    }
+
+    // 서버로 input을 전송한다
+    input.sequenceNumber = self.sequenceNumber++;
+    input.clientId = self.clientId;
+    input.roomId = self.roomId;
+    self.emit('sendInput', input);
+
+    self.playerUpdate(self.players[self.clientId], input.x, input.y);
+
+    self.pendingInputs.push(input);
+
+};
+FroggerGame.prototype.handleInput = function (key) {
+
+    var self = this;
+
+    if (self.gameState == 1) { //while playing the game
+        switch (key) {
+            case 'left':
+                self.key_left = true;
+                break;
+            case 'right':
+                self.key_right = true;
+                break;
+            case 'up':
+                self.key_up = true;
+                break;
+            case 'down':
+                self.key_down = true;
+                break;
+            case 'key_Released':
+                self.key_right = false;
+                self.key_left = false;
+                self.key_up = false;
+                self.key_down = false;
+                break;
+
+        }
+    }
+    /*
+    else if (self.gameState == Util.GAMESTATES.INIT) { //to start the game
+      if (key === 'space') {
+        self.gameState = 1;
+      }
+    } else if (self.gameState == Util.GAMESTATES.FINISH) {
+      if (key === 'restart') {
+        self.init();
       }
     }
-  }
-};
-// 클라이언트에서만 한다.
-FroggerGame.prototype.handleInput = function(key) {
-  var self = this;
-  var deltaX = 0,
-    deltaY = 0;
-  if (self.gameState == 1) { //while playing the game
-    switch (key) {
-      case 'left':
-        deltaX = -1;
-        break;
-      case 'right':
-        deltaX = 1;
-        break;
-      case 'up':
-        deltaY = -1;
-        break;
-      case 'down':
-        deltaY = 1;
-        break;
-    }
-    // updateAll에서 update시키면 쓸데없이 많은 비교를 하게 된다.
-    self.playerUpdate(self.players[self.clientId], deltaX, deltaY);
-    console.log(self.players[self.clientId]);
-  }
-  /*
-  else if (self.gameState == Util.GAMESTATES.INIT) { //to start the game
-    if (key === 'space') {
-      self.gameState = 1;
-    }
-  } else if (self.gameState == Util.GAMESTATES.FINISH) {
-    if (key === 'restart') {
-      self.init();
-    }
-  }
-  */
+    */
 };
 
-FroggerGame.prototype.updateAll = function(dt) {
-  var self = this;
+FroggerGame.prototype.updateAll = function (dt) {
+    var self = this;
 
-  self.allEnemies.forEach(function(enemy) {
-    enemy.update(dt, self.gameState, self.level);
-  });
+    self.allEnemies.forEach(function (enemy) {
+        enemy.update(dt, self.gameState, self.level);
+    });
 
-  self.checkCollisions();
+    self.checkCollisions();
 };
 
 // 서버에서 이거 굴리면 되겠는데?
@@ -7729,83 +8111,83 @@ FroggerGame.prototype.updateAll = function(dt) {
 // player 점수도 업데이트 해야되고,
 // gemCount 세서 levelUP도 시켜야되고
 // 이걸 다 처리하고 해당 내용을 다른 client들에게도 전송 해 줘야 한다. 그리고 그것들이 다 동기화 되어야 한다.
-FroggerGame.prototype.playerUpdate = function(player, deltaX, deltaY) {
-  var self = this;
+FroggerGame.prototype.playerUpdate = function (player, deltaX, deltaY) {
+    var self = this;
 
-  if (!self.checkBound(player.getPosition(), deltaX, deltaY) || !self.checkOtherPlayers(player.getPosition(), deltaX, deltaY)) {
-    // 서버측이라면 restore를 해야한다.
-    // 이벤트를 발생 시키고 그걸 RoomManager의 gameRoom 객체에서 처리 하도록 하자.
-    // 클라이언트에서는 아무일도 발생 하지 않아야하고
-    // 서버에서는 처리해야한다.
-    // 따라서 emitter를 활용 이벤트만 발생 시키자.
-    // 그러면 클라이언트든, 서버든 별 문제없이 돌아 갈 수 있다.
-    // self.emit('response' , response); 이런식으로 전송
-    return;
-  }
+    if (!self.checkBound(player.getPosition(), deltaX, deltaY) || !self.checkOtherPlayers(player.getPosition(), deltaX, deltaY)) {
+        // 서버측이라면 restore를 해야한다.
+        // 이벤트를 발생 시키고 그걸 RoomManager의 gameRoom 객체에서 처리 하도록 하자.
+        // 클라이언트에서는 아무일도 발생 하지 않아야하고
+        // 서버에서는 처리해야한다.
+        // 따라서 emitter를 활용 이벤트만 발생 시키자.
+        // 그러면 클라이언트든, 서버든 별 문제없이 돌아 갈 수 있다.
+        // self.emit('response' , response); 이런식으로 전송
+        return;
+    }
 
-  player.col += deltaX;
-  player.row += deltaY;
+    player.applyInput(player.col + deltaX, player.row + deltaY);
 
-  //collect any gems
-  var pickup = self.gems.gemGrid[player.row][player.col];
-  switch (pickup) {
-    case 1:
-      player.score += 1;
-      break;
-    case 2:
-      player.score += 2;
-      break;
-    case 3:
-      player.score += 10;
-      break;
-    case 4:
-      player.lives += 1;
-      break;
-    case 5:
-      player.invincible = true;
-      break;
-  }
+    //collect any gems
+    var pickup = self.gems.gemGrid[player.row][player.col];
+    switch (pickup) {
+        case 1:
+            player.score += 1;
+            break;
+        case 2:
+            player.score += 2;
+            break;
+        case 3:
+            player.score += 10;
+            break;
+        case 4:
+            player.lives += 1;
+            break;
+        case 5:
+            player.invincible = true;
+            break;
+    }
 
-  if (pickup !== 0 && pickup !== undefined) self.gems.gemCnt--;
-  //cell is now empty
-  // 여기서서버로 알려서 다른 클라이언트에게 알려야겠다.
-  self.gems.gemGrid[player.row][player.col] = 0;
-  //update actual position
-  player.x = player.col * 100;
-  player.y = player.row * 83 - 30;
+    if (pickup !== 0 && pickup !== undefined) self.gems.gemCnt--;
+    //cell is now empty
+    // 여기서서버로 알려서 다른 클라이언트에게 알려야겠다.
+    self.gems.gemGrid[player.row][player.col] = 0;
+    //update actual position
+    player.x = player.col * 100;
+    player.y = player.row * 83 - 30;
 
-  if (self.gems.gemCnt <= 0) {
-    self.level++;
-    self.gems.initialize();
-    player.initialize();
-    self.allEnemies.forEach(function(enemy) {
-      enemy.initialize(self.gameState,self.level);
-    });
-  }
+    if (self.gems.gemCnt <= 0) {
+        self.level++;
+        self.gems.initialize();
+        player.initialize();
+        self.allEnemies.forEach(function (enemy) {
+            enemy.initialize(self.gameState, self.level);
+        });
+    }
 };
 
-FroggerGame.prototype.checkBound = function(position, deltaX, deltaY) {
-  var x = position.x + deltaX,
-    y = position.y + deltaY;
-  if (y > 5 || x > 4 || x < 0 || y < 0) return false;
-  return true;
+FroggerGame.prototype.checkBound = function (position, deltaX, deltaY) {
+    var x = position.x + deltaX,
+        y = position.y + deltaY;
+    if (y > 5 || x > 4 || x < 0 || y < 0) return false;
+    return true;
 };
 
-FroggerGame.prototype.checkOtherPlayers = function(position, deltaX, deltaY) {
-  var self = this;
+FroggerGame.prototype.checkOtherPlayers = function (position, deltaX, deltaY) {
+    var self = this;
+    /*
+    var x = position.x + deltaX,
+        y = position.y + deltaY;
 
-  var x = position.x + deltaX,
-    y = position.y + deltaY;
-
-    self.players.forEach(function(player){
-      if(player.col === x && player.row === y) return false;
+    self.players.forEach(function (player) {
+        if (player.col === x && player.row === y) return false;
     });
-  return true;
+    */
+    return true;
 };
 
 module.exports = FroggerGame;
 
-},{"./Enemy":52,"./Gems":55,"./Player":56,"./Popup":57,"SeedRandom":3}],55:[function(require,module,exports){
+},{"./Enemy":54,"./Gems":57,"./Player":58,"./Popup":59,"SeedRandom":4,"events":2,"inherits":38}],57:[function(require,module,exports){
 var Gems = function() {
   var self = this;
   self.gemGrid = [
@@ -7857,49 +8239,58 @@ Gems.prototype.initialize = function() {
 
 module.exports = Gems;
 
-},{}],56:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 //Player the user controls
-var Player = function(options) {
-  var self = this;
-  self.initialize();
-  self.width = 50;
-  self.height = 60;
-  //player object will hold scores for the game
-  self.score = 0;
-  self.lives = 3;
-  self.id = options.id || 'offline';
+var Player = function (options) {
+    var self = this;
+    // gameloop에 따라 player가 initialize 되기도 하는데 이건 initialize되면 안되는 부분이다.
+    self.width = 50;
+    self.height = 60;
+    //player object will hold scores for the game
+    self.score = 0;
+    self.lives = 3;
+    self.order = options.order;
+    self.id = options.id || 'offline';
+    
+    self.initialize();
 };
 
-Player.prototype.initialize = function() {
-  var self = this;
-  //row and column variables for easier handling
-  self.col = 2;
-  self.row = 5;
-  self.x = self.col * 100;
-  self.y = self.row * 83 - 30;
-  self.invincible = false;
+Player.prototype.initialize = function () {
+    var self = this;
+    //row and column variables for easier handling
+    self.col = self.order;
+    self.row = 5;
+    self.x = self.col * 100;
+    self.y = self.row * 83 - 30;
+    self.invincible = false;
 };
 // update시 game 객체 넘겨줄까?
 // 아니면 필요한 데이터만 넘겨줄까?
-Player.prototype.getPosition = function() {
-  var self = this;
-  return {
-    x : self.col,
-    y : self.row
-  };
+Player.prototype.getPosition = function () {
+    var self = this;
+    return {
+        x: self.col,
+        y: self.row
+    };
 };
 
-Player.prototype.getBoardPosition = function() {
-  var self = this;
-  return {
-    x : self.x,
-    y : self.y
-  };
+Player.prototype.getBoardPosition = function () {
+    var self = this;
+    return {
+        x: self.x,
+        y: self.y
+    };
+};
+
+Player.prototype.applyInput = function (x,y) {
+    var self = this;
+    self.col = x;
+    self.row = y;
 };
 
 module.exports = Player;
 
-},{}],57:[function(require,module,exports){
+},{}],59:[function(require,module,exports){
 //start and end screen
 var Popup = function() {
   this.options = ["PRESS [SPACE] TO START", "", "GAME OVER"];
@@ -7931,96 +8322,139 @@ Popup.prototype.render = function(state) {
 
 module.exports = Popup;
 
-},{}],58:[function(require,module,exports){
+},{}],60:[function(require,module,exports){
 var SocketIO = require('socket.io-client');
 var Main = require('./main');
-window.onload = function(){
-  new ClientManager();
+window.onload = function () {
+    new ClientManager();
 };
 
-function ClientManager(){
-  var self = this;
-  if (!(self instanceof ClientManager)) return new ClientManager();
-  self.init();
+function ClientManager() {
+    var self = this;
+    if (!(self instanceof ClientManager)) return new ClientManager();
+    self.init();
 }
 
-ClientManager.prototype.init = function(){
-  var self = this;
+ClientManager.prototype.init = function () {
+    var self = this;
 
-  self.socket = SocketIO(window.location.hostname + ':' + window.location.port);
-  self.setupSocket();
+    self.socket = SocketIO(window.location.hostname + ':' + window.location.port);
+    self.setupSocket();
 };
 
-ClientManager.prototype.setupSocket = function(){
-  var self = this;
+ClientManager.prototype.setupSocket = function () {
+    var self = this;
 
-  self.socket.on('connect_failed', function() {
-    self.socket.close();
-    console.log('connect_failed');
-  });
+    self.socket.on('connect_failed', function () {
+        self.socket.close();
+        console.log('connect_failed');
+    });
 
-  self.socket.on('game packet', self.socketHandler.bind(self));
+    self.socket.on('welcome', function (message) {
 
-  self.socket.on('welcome', function(message){
-    self.main = new Main({ id : self.socket.id , seed : message.seed });
-    self.main.startGame();
-  });
+        self.main = new Main({
+            id: self.socket.id,
+            seed: message.seed,
+            order: message.order,
+            roomId : message.roomId
+        });
+    });
+    // bugspeed와 gem배열이 들어올 수 있음
+    self.socket.on('start', function (message) {
+        self.main.startLoop();
 
-  self.socket.emit('join', 'hello');
+        self.main.game.on('sendInput' , function (param) {
+            self.socket.emit('clientInput',param);
+        });
+
+        self.socket.on('game packet', self.socketHandler.bind(self));
+    });
+
+    self.socket.emit('join', 'hello');
 };
 
-ClientManager.prototype.socketHandler = function(message){
-  var self = this;
-  // 여기서 이제 다른 player의 데이터를 동기화 하거나
-  //
-  console.log(message.message);
+ClientManager.prototype.socketHandler = function (message) {
+    var self = this;
+    // 여기서 이제 다른 player의 데이터를 동기화 하거나
+    // 일단 클라이언트의 입력에 따라 서버에서 처리가 제대로 되는지 파악 해 보자
+
+    if(message.type === 5){
+        self.main.game.messages.push(message);
+    }
 };
 
-},{"./main":59,"socket.io-client":42}],59:[function(require,module,exports){
+},{"./main":61,"socket.io-client":44}],61:[function(require,module,exports){
 var DrawModule = require('./FroggerGameBoard');
+var FroggerGame = require('./FroggerGameLogic');
 
 function Main(gameInfo) {
-  var self = this;
-  if (!(self instanceof Main)) return new Main(id);
-  self.allowedKeys = {
-    37: 'left',
-    38: 'up',
-    39: 'right',
-    40: 'down',
-    32: 'space',
-    82: 'restart'
-  };
-
-  self.p5sketch = function(p) {
-    drawObj = new DrawModule();
-    drawObj.gameSetting(gameInfo);
-
-    p.preload = function() {
-      drawObj.init(p);
+    var self = this;
+    if (!(self instanceof Main)) return new Main(id);
+    self.allowedKeys = {
+        37: 'left',
+        38: 'up',
+        39: 'right',
+        40: 'down',
+        32: 'space',
+        82: 'restart'
     };
 
-    p.setup = function() {
-      var scale = drawObj.getScale();
-      p.createCanvas(scale.w, scale.h);
-    };
+    self.p5sketch = function (p) {
+        self.drawObj = new DrawModule();
+        self.game = new FroggerGame(gameInfo);
 
-    p.draw = function() {
-      p.clear();
-      drawObj.renderLoop();
-    };
+        p.preload = function () {
+            self.drawObj.init(p);
+            self.game.addPlayer({id: gameInfo.id, order: gameInfo.order});
+            self.game.initGame();
+        };
 
-    p.keyPressed = function() {
-      drawObj.game.handleInput(self.allowedKeys[p.keyCode]);
-    };
+        p.setup = function () {
+            var scale = self.drawObj.getScale();
+            p.createCanvas(scale.w, scale.h);
+            p.frameRate(50);
+            self.lastTime = Date.now();
+            self.inputIntervalTime = self.lastTime;
+        };
 
-  };
+        p.draw = function () {
+            p.clear();
+
+            var now = Date.now(),
+                dt = (now - self.lastTime) / 1000.0;
+
+            self.game.processServerMessages();
+
+            if ((now - self.inputIntervalTime) / 1000.0 > 4 * dt) {
+                self.inputIntervalTime = now;
+                self.game.processInput();
+            }
+
+            self.game.updateAll(dt);
+
+            self.drawObj.render(self.game.getPlayer(),self.game.level,self.game.allEnemies,self.game.gameState,self.game.gems.gemGrid);
+
+            self.lastTime = now;
+        };
+
+        p.keyPressed = function () {
+            self.game.handleInput(self.allowedKeys[p.keyCode]);
+            console.log('down')
+        };
+
+        p.keyReleased = function () {
+            self.game.handleInput('key_Released');
+            console.log('up');
+        };
+
+    };
 }
 
-Main.prototype.startGame = function() {
-  var self = this;
-  new p5(self.p5sketch, 'myp5sketch');
+Main.prototype.startLoop = function () {
+    var self = this;
+    new p5(self.p5sketch, 'myp5sketch');
 };
 
 module.exports = Main;
 
-},{"./FroggerGameBoard":53}]},{},[58]);
+},{"./FroggerGameBoard":55,"./FroggerGameLogic":56}]},{},[60]);
