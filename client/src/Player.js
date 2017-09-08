@@ -35,15 +35,15 @@ Player.prototype.getPosition = function () {
 Player.prototype.getBoardPosition = function () {
     var self = this;
     return {
-        x: self.x,
-        y: self.y
+        x: self.col * 100,
+        y: self.row * 83 - 30
     };
 };
 
-Player.prototype.applyInput = function (x,y) {
+Player.prototype.applyInput = function (dx,dy) {
     var self = this;
-    self.col = x;
-    self.row = y;
+    self.col += dx;
+    self.row += dy;
 };
 
 module.exports = Player;

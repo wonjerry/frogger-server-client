@@ -26,11 +26,7 @@ DrawFroggerGame.prototype.init = function (p) {
     // enemy and player image
     self.enemyImg = p5Object.loadImage(_dir + 'enemy-bug.png');
     self.playerImg = p5Object.loadImage(_dir + 'char-boy.png');
-};
-
-DrawFroggerGame.prototype.gameSetting = function (settings) {
-    var self = this;
-    self.game = new FroggerGame(settings);
+    self.player2Img = p5Object.loadImage(_dir + 'char-cat-girl.png');
 
 };
 
@@ -42,21 +38,21 @@ DrawFroggerGame.prototype.getScale = function () {
     };
 };
 
-DrawFroggerGame.prototype.render = function (player,level,allEnemies,gameState,gems) {
+DrawFroggerGame.prototype.render = function (players,level,allEnemies,gameState,gems) {
     var self = this;
 
     self.renderMap(gems);
-    self.renderInfo(player,level);
-    self.renderEntities(player,allEnemies,gameState);
+    self.renderInfo(players[0],level);
+    self.renderEntities(players,allEnemies,gameState);
 };
 
-DrawFroggerGame.prototype.renderEntities = function (player,allEnemies,gameState) {
+DrawFroggerGame.prototype.renderEntities = function (players,allEnemies,gameState) {
     var self = this;
     /* Loop through all of the objects within the allEnemies array and call
      * the render function you have defined.
      */
     self.enemyRender(allEnemies);
-    self.playerRender(player,gameState);
+    self.playerRender(players,gameState);
     self.popupRender(gameState);
 };
 
@@ -122,12 +118,22 @@ DrawFroggerGame.prototype.renderMap = function (gems) {
     }
 };
 
-DrawFroggerGame.prototype.playerRender = function (player,gameState) {
+DrawFroggerGame.prototype.playerRender = function (players,gameState) {
     var self = this;
     if (gameState == 1) { //player only shows during gameplay
+        console.log(players)
+        var length = players.length;
+        for(var i=0; i < length; i++){
+            var playerPos = players[i].getBoardPosition();
 
-        var playerPos = player.getBoardPosition();
-        p5Object.image(self.playerImg, playerPos.x, playerPos.y);
+            if(i === 0) p5Object.image(self.playerImg, playerPos.x, playerPos.y);
+            else{
+                //console.log('x : ' + playerPos.x.toString() + ' y : ' + playerPos.y.toString())
+                p5Object.image(self.player2Img, playerPos.x, playerPos.y);
+            }
+
+
+        }
     }
 };
 
@@ -153,4 +159,5 @@ DrawFroggerGame.prototype.popupRender = function (gameState) {
     ctx.fillText(this.options[state], 252, 302);
     */
 };
+
 module.exports = DrawFroggerGame;

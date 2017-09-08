@@ -13,13 +13,14 @@ function Main(gameInfo) {
         82: 'restart'
     };
 
+    self.game = new FroggerGame(gameInfo);
+    self.game.addPlayer({id: gameInfo.id, order: gameInfo.order});
+
     self.p5sketch = function (p) {
         self.drawObj = new DrawModule();
-        self.game = new FroggerGame(gameInfo);
 
         p.preload = function () {
             self.drawObj.init(p);
-            self.game.addPlayer({id: gameInfo.id, order: gameInfo.order});
             self.game.initGame();
         };
 
@@ -46,19 +47,17 @@ function Main(gameInfo) {
 
             self.game.updateAll(dt);
 
-            self.drawObj.render(self.game.getPlayer(),self.game.level,self.game.allEnemies,self.game.gameState,self.game.gems.gemGrid);
+            self.drawObj.render(self.game.players,self.game.level,self.game.allEnemies,self.game.gameState,self.game.gems.gemGrid);
 
             self.lastTime = now;
         };
 
         p.keyPressed = function () {
             self.game.handleInput(self.allowedKeys[p.keyCode]);
-            console.log('down')
         };
 
         p.keyReleased = function () {
             self.game.handleInput('key_Released');
-            console.log('up');
         };
 
     };

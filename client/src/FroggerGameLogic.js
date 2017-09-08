@@ -43,25 +43,39 @@ function FroggerGame(options) {
 FroggerGame.prototype.addPlayer = function (options) {
     var self = this;
     self.playerCnt++;
+
     // 서버와 클라이언트가 order를 적용하는 방식이 달라서 이렇게 했다.
     options.order = options.order || self.playerCnt;
 
-    var player = new Player(options);
-    if (self.clientId === null) self.clientId = options.id;
-    self.players[options.id] = player;
+    var player = null;
+
+    player = new Player(options);
+
+    self.players.push(player);
 };
 
 FroggerGame.prototype.deletePlayer = function (options) {
     var self = this;
     // 추가적이 행위가 필요할 수 있다.
     self.playerCnt--;
-    delete self.players[options.id];
+    // players를 순회하면서 option에 있는 id와 같은 player를 삭제하도록 한다
+    delete self.players[0];
 };
 
-FroggerGame.prototype.getPlayer = function () {
+FroggerGame.prototype.getPlayer = function (id) {
     var self = this;
-    if (self.clientId !== null) return self.players[self.clientId];
-    else return null;
+    var player = null;
+    if(id){
+        self.players.forEach(function (ele) {
+            if(ele.id === id){
+                player = ele;
+            }
+        });
+    }else{
+       player =  self.players[0];
+    }
+
+    return player;
 };
 
 FroggerGame.prototype.initGame = function () {
@@ -85,7 +99,7 @@ FroggerGame.prototype.initGame = function () {
 // 클라이언트에서만 한다.
 FroggerGame.prototype.checkCollisions = function () {
     var self = this;
-    var player = self.players[self.clientId];
+    var player = self.players[0];
     if (player.invincible === false && self.gameState == 1) {
         for (i = 0; i < self.allEnemies.length; i++) {
             var enemy = self.allEnemies[i];
@@ -108,12 +122,59 @@ FroggerGame.prototype.checkCollisions = function () {
 // 클라이언트에서만 한다.
 
 FroggerGame.prototype.processServerMessages = function () {
-    while(true){
+    var self = this;
 
-        //var message = self.messages.splice(0,1);
-        //if(!message || message.length === 0) return;
+    while (self.messages.length !== 0) {
 
-        console.log(self.messages);
+        var message = self.messages.splice(0, 1);
+        var worldStates = message[0].worldState;
+
+        while (worldStates.length !== 0) {
+
+            var state = (worldStates.splice(0, 1))[0];
+
+            var player = null;
+            // 들어온 state가 자기 자신에 관한 것 일 때
+
+            if (self.players[0].id == state.playerId) {
+                // 여기서 받은 x ,y는 서버측의 player의 position이다
+                player = self.players[0];
+                player.col = state.x;
+                player.row = state.y;
+
+                var j = 0;
+                while (j < self.pendingInputs.length) {
+                    var input = self.pendingInputs[j];
+
+                    if (input.sequenceNumber <= state.lastProcessedInput) {
+                        // Already processed. Its effect is already taken into account into the world update
+                        // we just got, so we can drop it.
+                        self.pendingInputs.splice(j, 1);
+                    } else {
+                        // Not processed by the server yet. Re-apply it.
+                        //input에 있는 x,y의 delta 값이다
+                        player.applyInput(input.x,input.y);
+                        j++;
+                    }
+                }
+
+                // 디른 클라이언트일 때
+            } else {
+
+                self.players.forEach(function (ele) {
+                    if (ele.id === state.playerId) {
+                        //console.log(state.x);
+                        ele.col = state.x;
+                        ele.row = state.y;
+                    }
+
+                });
+
+                //console.log(self.players)
+            }
+
+
+        }
 
     }
 };
@@ -148,13 +209,13 @@ FroggerGame.prototype.processInput = function () {
         return;
     }
 
-    // 서버로 input을 전송한다
+    if (!self.playerUpdate(self.players[0], input.x, input.y)) return;
+
     input.sequenceNumber = self.sequenceNumber++;
-    input.clientId = self.clientId;
+    input.clientId = self.players[0].id;
     input.roomId = self.roomId;
     self.emit('sendInput', input);
 
-    self.playerUpdate(self.players[self.clientId], input.x, input.y);
 
     self.pendingInputs.push(input);
 
@@ -186,17 +247,6 @@ FroggerGame.prototype.handleInput = function (key) {
 
         }
     }
-    /*
-    else if (self.gameState == Util.GAMESTATES.INIT) { //to start the game
-      if (key === 'space') {
-        self.gameState = 1;
-      }
-    } else if (self.gameState == Util.GAMESTATES.FINISH) {
-      if (key === 'restart') {
-        self.init();
-      }
-    }
-    */
 };
 
 FroggerGame.prototype.updateAll = function (dt) {
@@ -227,10 +277,10 @@ FroggerGame.prototype.playerUpdate = function (player, deltaX, deltaY) {
         // 따라서 emitter를 활용 이벤트만 발생 시키자.
         // 그러면 클라이언트든, 서버든 별 문제없이 돌아 갈 수 있다.
         // self.emit('response' , response); 이런식으로 전송
-        return;
+        return false;
     }
 
-    player.applyInput(player.col + deltaX, player.row + deltaY);
+    player.applyInput(deltaX, deltaY);
 
     //collect any gems
     var pickup = self.gems.gemGrid[player.row][player.col];
@@ -268,6 +318,8 @@ FroggerGame.prototype.playerUpdate = function (player, deltaX, deltaY) {
             enemy.initialize(self.gameState, self.level);
         });
     }
+
+    return true;
 };
 
 FroggerGame.prototype.checkBound = function (position, deltaX, deltaY) {

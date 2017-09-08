@@ -37,10 +37,6 @@ RoomManager.prototype.requestGameRoom = function (socket) {
                 order: gameroom.getPlayerNum()+1,
                 roomId: gameroom.room_id
             });
-
-            socket.on('clientInput',function (message) {
-
-            });
             
             // client에게 주는 option은 추가될 수 있음
             gameroom.pushClient({
@@ -84,6 +80,7 @@ RoomManager.prototype.createGameRoom = function (socket) {
     });
 
     self.gameRooms[gameroom.room_id] = gameroom;
+
     socket.emit('welcome', {
         seed: gameroom.getSeed(),
         order: gameroom.getPlayerNum(),
@@ -97,7 +94,6 @@ RoomManager.prototype.roomResponse = function (message) {
         // debug(message)
         // 해당 room에 있는 클라이언트 전부에게 전송
         self.io.in(message.room_id).emit('game packet', message);
-        console.log(message.worldState);
     } else {
         //해당 클라이언트에게만 전송
         self.io.to(message.client_id).emit('game packet', message);

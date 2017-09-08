@@ -47,22 +47,27 @@ GameRoom.prototype.initGame = function () {
     if (self.gameInterval) clearInterval(self.gameInterval);
     //일정 간격으로 새로운 플레이어가 왔는지 체크하고 game 내용을 초기화 해서 패킷을 보내 준다.
     self.gameInterval = setInterval(gameLoop.bind(self), 1000) // call every second
-    
+
 };
 
 GameRoom.prototype.processInput = function () {
     var self = this;
-    while(true){
-        var message = self.messages.splice(0,1);
 
-        if(!message || message.length === 0) break;
+    while (true) {
+        var message = (self.messages.splice(0, 1))[0];
+
+        if (!message || message.length === 0) break;
 
         // validInput 만들기
         //if(self.game.validInput()){
-        if(true){
-            var id = message[0].clientId;
-            self.game.players[id].applyInput(message[0].x,message[0].y);
-            self.lastProcessedInput[id] = message.sequenceNumber;
+        if (true) {
+            self.game.players.forEach(function (player) {
+                if (message.clientId === player.id) {
+                    // 여기서 받는 x,y는 delta 값이다
+                    player.applyInput(message.x, message.y);
+                    self.lastProcessedInput[message.clientId] = message.sequenceNumber;
+                }
+            });
         }
     }
 };
@@ -73,6 +78,7 @@ GameRoom.prototype.sendWorldState = function () {
     var world_state = [];
     // 나중에 클라이언트 제안이 4로 바뀌면 바꿔주어야 할 부분이다
     var num_clients = 2;
+
     self.game.players.forEach(function (player) {
         world_state.push({
             playerId: player.id,
@@ -89,7 +95,7 @@ GameRoom.prototype.sendWorldState = function () {
         seed: Math.random().toString(36).substr(2),
         type: Util.ACTION_TYPE.WORLDSTATE_RECEIVED,
         message: '',
-        worldState : world_state
+        worldState: world_state
     };
 
     self.emit('response', response);
@@ -100,43 +106,37 @@ GameRoom.prototype.pushClient = function (options) {
 
     self.game.addPlayer(options);
     self.lastProcessedInput[options.id] = 0;
+    var player = self.game.getPlayer(options.id);
+    // 현재 추가된 클라이언트를 모든 클라이언트들에게 전송한다
 
-    /* 지금은 1인용이라 주석이지만 나중에는 추가 할 것 이다.
     var response = {
-      client_id: options.id,
-      room_id: self.room_id,
-      broadcast: true,
-      time: Date.now(),
-      seed: player.randomSeed,
-      type: Util.ACTION_TYPE.CONNECTION,
-      message: options.mapsize
-    }
-
-    self.emit('response', response)
-
-
-    // 다른 플레이어들의 history를 수집한다.
-    var otherplayers = []
-    for (var key in self.players) {
-      if (self.players.hasOwnProperty(key)) {
-        var tempplayer = self.players[key]
-        otherplayers.push(tempplayer.history)
-      }
-    }
-    if (otherplayers.length > 0) {
-      // 해당 클라이언트의 데이터와 otherplayers의 history를 response에 담아서 해당 클라이언트에게 보낸다.
-      var response = {
-        client_id: player.id,
-        room_id: self.room_id,
-        broadcast: false,
+        id: player.id,
+        room_id : self.room_id,
+        order: player.order,
+        broadcast: true,
         time: Date.now(),
-        seed: player.randomSeed,
-        type: Util.ACTION_TYPE.STATE_RESTORE,
-        message: otherplayers
-      }
-      self.emit('response', response)
+        type: Util.ACTION_TYPE.CONNECTION
+    };
+
+    self.emit('response', response);
+
+    if (self.game.players.length > 1) {
+        // 해당 클라이언트의 데이터와 otherplayers의 history를 response에 담아서 해당 클라이언트에게 보낸다.
+        var response = {
+            client_id: player.id,
+            room_id: self.room_id,
+            broadcast: false,
+            time: Date.now(),
+            seed: player.randomSeed,
+            type: Util.ACTION_TYPE.FETCH_PLAYERS,
+            otherPlayers: self.game.players
+        };
+
+        self.emit('response', response);
+
+        console.log(self.game.players)
     }
-    */
+
 
 };
 
