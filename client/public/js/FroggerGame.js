@@ -7691,475 +7691,464 @@ yeast.decode = decode;
 module.exports = yeast;
 
 },{}],54:[function(require,module,exports){
+var SeedRandom = require('SeedRandom')
+
 // Enemies our player must avoid
-var Enemy = function() {
-  var self = this;
-  self.width = 70;
-  self.height = 50;
-};
+var Enemy = function (randomSeed) {
+  var self = this
+  self.width = 70
+  self.height = 50
+
+  self.setRandomSeed(randomSeed)
+}
+
+Enemy.prototype.setRandomSeed = function (seed) {
+  var self = this
+
+  self.randomseed = seed
+  self.random = SeedRandom(self.randomseed)
+}
+
 //setSpeed로 player의 레벨을 받아서 speed 값을 조정 해 주어야 한다.
-Enemy.prototype.initialize = function(gameState,level) {
-  var self = this;
-  if (gameState != 2) { //unless game over
-    self.speed = Math.random() * level * 100 + 100; //choose initial speed at random
+Enemy.prototype.initialize = function (gameState, level) {
+  var self = this
+  if (gameState !== 2) { //unless game over
+    self.speed = self.random() * level * 100 + 100 //choose initial speed at random
   } else {
-    self.speed = 0;
+    self.speed = 0
   }
-  self.x = -100;
-  self.y = (Math.floor(Math.random() * 3) + 1) * 83 - 30; //choose random row
-};
+  self.x = -100
+  self.y = (Math.floor(self.random() * 3) + 1) * 83 - 30 //choose random row
+}
 
 // Update the enemy's position
 // Parameter: dt, a time delta between ticks
-Enemy.prototype.update = function(dt,gameState,level) {
-  var self = this;
+Enemy.prototype.update = function (dt, gameState, level) {
+  var self = this
   // multiply movement by dt to ensure the game runs at the same speed for all computers
   //if bug has moved off right of screen, move it back to the start and initialize row and speed again
   if (self.x > 550) {
     // 여기 gameState 드가야됨
-    self.initialize(gameState,level);
+    self.initialize(gameState, level)
   } else {
     //bugs move at a constant speed and can overtake/overlap
-    self.x = self.x + self.speed * dt;
+    self.x = self.x + self.speed * dt
   }
-};
+}
 
-Enemy.prototype.getPosition = function() {
-  var self = this;
+Enemy.prototype.getPosition = function () {
+  var self = this
   return {
-    x : self.x,
-    y : self.y
-  };
-};
+    x: self.x,
+    y: self.y
+  }
+}
 
-module.exports = Enemy;
+module.exports = Enemy
 
-},{}],55:[function(require,module,exports){
-var FroggerGame = require('./FroggerGameLogic');
-var p5Object;
-var _dir = './../images/';
+},{"SeedRandom":4}],55:[function(require,module,exports){
+var FroggerGame = require('./FroggerGameLogic')
+var p5Object
+var _dir = './../images/'
 
-function DrawFroggerGame() {
-    if (!(this instanceof DrawFroggerGame)) return new DrawFroggerGame();
+function DrawFroggerGame () {
+  if (!(this instanceof DrawFroggerGame)) return new DrawFroggerGame()
 }
 
 DrawFroggerGame.prototype.init = function (p) {
-    var self = this;
-    p5Object = p;
-    self.width = 505;
-    self.height = 606;
+  var self = this
+  p5Object = p
+  self.width = 505
+  self.height = 606
 
-    self.heartImg = p5Object.loadImage(_dir + 'Heart.png');
-    self.starImg = p5Object.loadImage(_dir + 'Star.png');
-    // map area Images
-    self.waterImg = p5Object.loadImage(_dir + 'water-block.png');
-    self.stoneImg = p5Object.loadImage(_dir + 'stone-block.png');
-    self.grassImg = p5Object.loadImage(_dir + 'grass-block.png');
-    self.rowImages = [self.waterImg, self.stoneImg, self.stoneImg, self.stoneImg, self.grassImg, self.grassImg];
-    // item Images
-    self.blueGemImg = p5Object.loadImage(_dir + 'gem-blue.png');
-    self.greenGemImg = p5Object.loadImage(_dir + 'gem-green.png');
-    self.orangeGemImg = p5Object.loadImage(_dir + 'gem-orange.png');
-    // enemy and player image
-    self.enemyImg = p5Object.loadImage(_dir + 'enemy-bug.png');
-    self.playerImg = p5Object.loadImage(_dir + 'char-boy.png');
-    self.player2Img = p5Object.loadImage(_dir + 'char-cat-girl.png');
+  self.heartImg = p5Object.loadImage(_dir + 'Heart.png')
+  self.starImg = p5Object.loadImage(_dir + 'Star.png')
+  // map area Images
+  self.waterImg = p5Object.loadImage(_dir + 'water-block.png')
+  self.stoneImg = p5Object.loadImage(_dir + 'stone-block.png')
+  self.grassImg = p5Object.loadImage(_dir + 'grass-block.png')
+  self.rowImages = [self.waterImg, self.stoneImg, self.stoneImg, self.stoneImg, self.grassImg, self.grassImg]
+  // item Images
+  self.blueGemImg = p5Object.loadImage(_dir + 'gem-blue.png')
+  self.greenGemImg = p5Object.loadImage(_dir + 'gem-green.png')
+  self.orangeGemImg = p5Object.loadImage(_dir + 'gem-orange.png')
+  // enemy and player image
+  self.enemyImg = p5Object.loadImage(_dir + 'enemy-bug.png')
+  self.playerImg = p5Object.loadImage(_dir + 'char-boy.png')
+  self.player2Img = p5Object.loadImage(_dir + 'char-cat-girl.png')
 
-};
+}
 
 DrawFroggerGame.prototype.getScale = function () {
-    var self = this;
-    return {
-        w: self.width,
-        h: self.height
-    };
-};
+  var self = this
+  return {
+    w: self.width,
+    h: self.height
+  }
+}
 
-DrawFroggerGame.prototype.render = function (players,level,allEnemies,gameState,gems) {
-    var self = this;
+DrawFroggerGame.prototype.render = function (players, level, allEnemies, gameState, gems) {
+  var self = this
 
-    self.renderMap(gems);
-    self.renderInfo(players[0],level);
-    self.renderEntities(players,allEnemies,gameState);
-};
+  self.renderMap(gems)
+  self.renderInfo(players[0], level)
+  self.renderEntities(players, allEnemies, gameState)
+}
 
-DrawFroggerGame.prototype.renderEntities = function (players,allEnemies,gameState) {
-    var self = this;
-    /* Loop through all of the objects within the allEnemies array and call
-     * the render function you have defined.
-     */
-    self.enemyRender(allEnemies);
-    self.playerRender(players,gameState);
-    self.popupRender(gameState);
-};
+DrawFroggerGame.prototype.renderEntities = function (players, allEnemies, gameState) {
+  var self = this
+  /* Loop through all of the objects within the allEnemies array and call
+   * the render function you have defined.
+   */
+  self.enemyRender(allEnemies)
+  self.playerRender(players, gameState)
+  self.popupRender(gameState)
+}
 
-DrawFroggerGame.prototype.renderInfo = function (player,level) {
-    var self = this;
-    //render scores and lives at top of screen
-    p5Object.textFont('serif', [30]);
-    p5Object.textAlign(p5Object.LEFT);
-    p5Object.text("LEVEL: " + level, 10, 38);
-    p5Object.image(self.blueGemImg, 194, 1, 25, 42); // x,y,width,height
-    p5Object.text(player.score, 224, 38);
-    p5Object.image(self.heartImg, 294, 4, 25, 42);
-    p5Object.text(player.lives, 324, 38);
-    if (player.invincible === true) {
-        p5Object.image(self.starImg, 394, -15, 40, 69);
-    }
-};
+DrawFroggerGame.prototype.renderInfo = function (player, level) {
+  var self = this
+  //render scores and lives at top of screen
+  p5Object.textFont('serif', [30])
+  p5Object.textAlign(p5Object.LEFT)
+  p5Object.text('LEVEL: ' + level, 10, 38)
+  p5Object.image(self.blueGemImg, 194, 1, 25, 42) // x,y,width,height
+  p5Object.text(player.score, 224, 38)
+  p5Object.image(self.heartImg, 294, 4, 25, 42)
+  p5Object.text(player.lives, 324, 38)
+  if (player.invincible === true) {
+    p5Object.image(self.starImg, 394, -15, 40, 69)
+  }
+}
 
 DrawFroggerGame.prototype.renderMap = function (gems) {
-    var self = this;
-    /* This array holds the relative URL to the image used
-     * for that particular row of the game level.
-     */
-    var numRows = 6,
-        numCols = 5,
-        row, col;
+  var self = this
+  /* This array holds the relative URL to the image used
+   * for that particular row of the game level.
+   */
+  var numRows = 6,
+    numCols = 5,
+    row, col
 
-    /* Loop through the number of rows and columns we've defined above
-     * and, using the rowImages array, draw the correct image for that
-     * portion of the "grid"
-     */
-    for (row = 0; row < numRows; row++) {
-        for (col = 0; col < numCols; col++) {
-            /* The drawImage function of the canvas' context element
-             * requires 3 parameters: the image to draw, the x coordinate
-             * to start drawing and the y coordinate to start drawing.
-             * We're using our Resources helpers to refer to our images
-             * so that we get the benefits of caching these images, since
-             * we're using them over and over.
-             */
-            p5Object.image(self.rowImages[row], col * 101, row * 83); // x,y,width,height
-            var gemType = gems[row][col];
-            switch (gemType) {
-                case 0:
-                    break;
-                case 1:
-                    p5Object.image(self.blueGemImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
-                    break;
-                case 2:
-                    p5Object.image(self.greenGemImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
-                    break;
-                case 3:
-                    p5Object.image(self.orangeGemImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
-                    break;
-                case 4:
-                    p5Object.image(self.heartImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
-                    break;
-                case 5:
-                    p5Object.image(self.starImg, col * 101 + 25, row * 83 + 30, 50, 85); // x,y,width,height
-                    break;
-            }
-        }
+  /* Loop through the number of rows and columns we've defined above
+   * and, using the rowImages array, draw the correct image for that
+   * portion of the "grid"
+   */
+  for (row = 0; row < numRows; row++) {
+    for (col = 0; col < numCols; col++) {
+      /* The drawImage function of the canvas' context element
+       * requires 3 parameters: the image to draw, the x coordinate
+       * to start drawing and the y coordinate to start drawing.
+       * We're using our Resources helpers to refer to our images
+       * so that we get the benefits of caching these images, since
+       * we're using them over and over.
+       */
+      p5Object.image(self.rowImages[row], col * 101, row * 83) // x,y,width,height
+      var gemType = gems[row][col]
+      switch (gemType) {
+        case 0:
+          break
+        case 1:
+          p5Object.image(self.blueGemImg, col * 101 + 25, row * 83 + 30, 50, 85) // x,y,width,height
+          break
+        case 2:
+          p5Object.image(self.greenGemImg, col * 101 + 25, row * 83 + 30, 50, 85) // x,y,width,height
+          break
+        case 3:
+          p5Object.image(self.orangeGemImg, col * 101 + 25, row * 83 + 30, 50, 85) // x,y,width,height
+          break
+        case 4:
+          p5Object.image(self.heartImg, col * 101 + 25, row * 83 + 30, 50, 85) // x,y,width,height
+          break
+        case 5:
+          p5Object.image(self.starImg, col * 101 + 25, row * 83 + 30, 50, 85) // x,y,width,height
+          break
+      }
     }
-};
+  }
+}
 
-DrawFroggerGame.prototype.playerRender = function (players,gameState) {
-    var self = this;
-    if (gameState == 1) { //player only shows during gameplay
-        console.log(players)
-        var length = players.length;
-        for(var i=0; i < length; i++){
-            var playerPos = players[i].getBoardPosition();
+DrawFroggerGame.prototype.playerRender = function (players, gameState) {
+  var self = this
+  if (gameState === 1) { //player only shows during gameplay
 
-            if(i === 0) p5Object.image(self.playerImg, playerPos.x, playerPos.y);
-            else{
-                //console.log('x : ' + playerPos.x.toString() + ' y : ' + playerPos.y.toString())
-                p5Object.image(self.player2Img, playerPos.x, playerPos.y);
-            }
+    var length = players.length
+    for (var i = 0; i < length; i++) {
+      var playerPos = players[i].getBoardPosition()
 
+      if (i === 0) p5Object.image(self.playerImg, playerPos.x, playerPos.y)
+      else {
+        //console.log('x : ' + playerPos.x.toString() + ' y : ' + playerPos.y.toString())
+        p5Object.image(self.player2Img, playerPos.x, playerPos.y)
+      }
 
-        }
     }
-};
+  }
+}
 
 DrawFroggerGame.prototype.enemyRender = function (allEnemies) {
-    var self = this;
-    allEnemies.forEach(function (enemy) {
-        var enemyPos = enemy.getPosition();
-        p5Object.image(self.enemyImg, enemyPos.x, enemyPos.y);
-    });
-};
+  var self = this
+  allEnemies.forEach(function (enemy) {
+    var enemyPos = enemy.getPosition()
+    p5Object.image(self.enemyImg, enemyPos.x, enemyPos.y)
+  })
+}
 
 DrawFroggerGame.prototype.popupRender = function (gameState) {
-    //if(gameState === 1) return;
-    /*
-    ctx.fillStyle = "white";
-    ctx.strokeStyle = "black";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(52, 252, 400, 90);
-    ctx.fillRect(52, 252, 400, 90);
-    ctx.fillStyle = "black";
-    ctx.textAlign = "center";
-    ctx.font = "24px serif";
-    ctx.fillText(this.options[state], 252, 302);
-    */
-};
+  //if(gameState === 1) return;
+  /*
+  ctx.fillStyle = "white";
+  ctx.strokeStyle = "black";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(52, 252, 400, 90);
+  ctx.fillRect(52, 252, 400, 90);
+  ctx.fillStyle = "black";
+  ctx.textAlign = "center";
+  ctx.font = "24px serif";
+  ctx.fillText(this.options[state], 252, 302);
+  */
+}
 
-module.exports = DrawFroggerGame;
+module.exports = DrawFroggerGame
 
 },{"./FroggerGameLogic":56}],56:[function(require,module,exports){
-var Gems = require('./Gems');
-var Player = require('./Player');
-var Enemy = require('./Enemy');
-var Popup = require('./Popup');
-var SeedRandom = require('SeedRandom');
-var EventEmitter = require('events').EventEmitter;
-var inherits = require('inherits');
+var Gems = require('./Gems')
+var Player = require('./Player')
+var Enemy = require('./Enemy')
+var Popup = require('./Popup')
 
-inherits(FroggerGame, EventEmitter);
+var EventEmitter = require('events').EventEmitter
+var inherits = require('inherits')
+
+inherits(FroggerGame, EventEmitter)
 
 // RommManager에서는 pushClient 할 떄 randomSeed를 받았지만
 // 내 게임에서는 FrooggerGame 만들 때 randomSeed를 받는다.
 // 클라이언트는 서버와 연결 시 초기에 randomSeed를 받는다.
-function FroggerGame(options) {
-    var self = this;
-    if (!(self instanceof FroggerGame)) return new FroggerGame(options);
+function FroggerGame (options) {
+  var self = this
+  if (!(self instanceof FroggerGame)) return new FroggerGame(options)
 
-    self.gameState = 0; // 시퀀셜 진행
+  self.gameState = 0 // 시퀀셜 진행
 
-    // game data를 초기화 한다.
-    self.players = [];
-    self.playerCnt = 0;
-    self.clientId = null;
+  // game data를 초기화 한다.
+  self.players = []
+  self.playerCnt = 0
+  self.clientId = null
 
-    self.randomSeed = options.seed || Date.now();
-    self.random = SeedRandom(self.randomSeed);
+  self.roomId = options.roomId
 
-    self.roomId = options.roomId;
+  self.messages = []
 
-    self.messages = [];
+  self.key_right = false
+  self.key_left = false
+  self.key_up = false
+  self.key_down = false
+  self.sequenceNumber = 0
+  self.pendingInputs = []
 
-    self.key_right = false;
-    self.key_left = false;
-    self.key_up = false;
-    self.key_down = false;
-    self.sequenceNumber = 0;
-    self.pendingInputs = [];
+  self.gems = new Gems(options.seeds.gemSeed)
+  self.bug1 = new Enemy(options.seeds.enemy1Seed)
+  self.bug2 = new Enemy(options.seeds.enemy2Seed)
+  self.bug3 = new Enemy(options.seeds.enemy3Seed)
+}
+
+FroggerGame.prototype.setSeeds = function (seeds) {
+  var self = this;
+
+  self.gems.setRandomSeed(seeds.gemSeed)
+  self.bug1.setRandomSeed(seeds.enemy1Seed)
+  self.bug2.setRandomSeed(seeds.enemy2Seed)
+  self.bug3.setRandomSeed(seeds.enemy3Seed)
 }
 
 // RoomManager에서 socket.id를 받는다.
 // options는 추가될 수 있음
 // 나중에 otherPlayer 들어오면 이거가지고 조정 해 줘야되는데 id만 받으면 안됨
 FroggerGame.prototype.addPlayer = function (options) {
-    var self = this;
-    self.playerCnt++;
+  var self = this
+  self.playerCnt++
 
-    // 서버와 클라이언트가 order를 적용하는 방식이 달라서 이렇게 했다.
-    options.order = options.order || self.playerCnt;
+  // 서버와 클라이언트가 order를 적용하는 방식이 달라서 이렇게 했다.
+  options.order = options.order || self.playerCnt
 
-    var player = null;
-
-    player = new Player(options);
-
-    self.players.push(player);
-};
+  self.players.push(new Player(options))
+}
 
 FroggerGame.prototype.deletePlayer = function (options) {
-    var self = this;
-    // 추가적이 행위가 필요할 수 있다.
-    self.playerCnt--;
-    // players를 순회하면서 option에 있는 id와 같은 player를 삭제하도록 한다
-    delete self.players[0];
-};
+  var self = this
+  // 추가적이 행위가 필요할 수 있다.
+  self.playerCnt--
+  // players를 순회하면서 option에 있는 id와 같은 player를 삭제하도록 한다
+  delete self.players[0]
+}
 
 FroggerGame.prototype.getPlayer = function (id) {
-    var self = this;
-    var player = null;
-    if(id){
-        self.players.forEach(function (ele) {
-            if(ele.id === id){
-                player = ele;
-            }
-        });
-    }else{
-       player =  self.players[0];
-    }
+  var self = this
+  var player = null
+  if (id) {
+    self.players.forEach(function (ele) {
+      if (ele.id === id) {
+        player = ele
+      }
+    })
+  } else {
+    player = self.players[0]
+  }
 
-    return player;
-};
+  return player
+}
 
 FroggerGame.prototype.initGame = function () {
-    var self = this;
-    // 일단 난 history 전송 안하고 이것만 한다.
-    self.gameState = 1; //0=not started, 1=playing, 2=game over
-    self.level = 1;
+  var self = this
+  // 일단 난 history 전송 안하고 이것만 한다.
+  self.gameState = 1 //0=not started, 1=playing, 2=game over
+  self.level = 1
 
-    self.gems = new Gems();
-    self.bug1 = new Enemy();
-    self.bug2 = new Enemy();
-    self.bug3 = new Enemy();
-    self.allEnemies = [self.bug1, self.bug2, self.bug3];
+  self.allEnemies = [self.bug1, self.bug2, self.bug3]
 
-    self.bug1.initialize(self.gameState, self.level);
-    self.bug2.initialize(self.gameState, self.level);
-    self.bug3.initialize(self.gameState, self.level);
+  self.bug1.initialize(self.gameState, self.level)
+  self.bug2.initialize(self.gameState, self.level)
+  self.bug3.initialize(self.gameState, self.level)
 
-    self.popup = new Popup();
-};
+  self.popup = new Popup()
+}
+
 // 클라이언트에서만 한다.
 FroggerGame.prototype.checkCollisions = function () {
-    var self = this;
-    var player = self.players[0];
-    if (player.invincible === false && self.gameState == 1) {
-        for (i = 0; i < self.allEnemies.length; i++) {
-            var enemy = self.allEnemies[i];
-            if (player.x < enemy.x + enemy.width && player.x + enemy.width > enemy.x &&
-                player.y < enemy.y + enemy.height && player.y + player.height > enemy.y) {
-                player.lives -= 1;
-                if (player.lives === 0) {
-                    // 여기서도 서버에서 뭔가 처리 해 주어야할 부분이 있음
-                    // emit을 통해 서버로
-                    self.gameState = 2;
-                    return;
-                } else {
-                    player.initialize();
-                    return;
-                }
-            }
+  var self = this
+  var player = self.players[0]
+  if (player.invincible === false && self.gameState === 1) {
+    for (i = 0; i < self.allEnemies.length; i++) {
+      var enemy = self.allEnemies[i]
+      if (player.x < enemy.x + enemy.width && player.x + enemy.width > enemy.x &&
+        player.y < enemy.y + enemy.height && player.y + player.height > enemy.y) {
+        player.lives -= 1
+        if (player.lives === 0) {
+          // 여기서도 서버에서 뭔가 처리 해 주어야할 부분이 있음
+          // emit을 통해 서버로
+          self.gameState = 2
+          return
+        } else {
+          player.initialize()
+          return
         }
+      }
     }
-};
+  }
+}
 // 클라이언트에서만 한다.
 
 FroggerGame.prototype.processServerMessages = function () {
-    var self = this;
+  var self = this
 
-    while (self.messages.length !== 0) {
+  while (self.messages.length !== 0) {
 
-        var message = self.messages.splice(0, 1);
-        var worldStates = message[0].worldState;
+    var message = self.messages.splice(0, 1)
 
-        while (worldStates.length !== 0) {
+    var worldStates = message[0].worldState
 
-            var state = (worldStates.splice(0, 1))[0];
+    while (worldStates.length !== 0) {
 
-            var player = null;
-            // 들어온 state가 자기 자신에 관한 것 일 때
+      var state = (worldStates.splice(0, 1))[0]
 
-            if (self.players[0].id == state.playerId) {
-                // 여기서 받은 x ,y는 서버측의 player의 position이다
-                player = self.players[0];
-                player.col = state.x;
-                player.row = state.y;
+      var player = null
+      // 들어온 state가 자기 자신에 관한 것 일 때
 
-                var j = 0;
-                while (j < self.pendingInputs.length) {
-                    var input = self.pendingInputs[j];
+      if (self.players[0].id !== state.playerId) {
 
-                    if (input.sequenceNumber <= state.lastProcessedInput) {
-                        // Already processed. Its effect is already taken into account into the world update
-                        // we just got, so we can drop it.
-                        self.pendingInputs.splice(j, 1);
-                    } else {
-                        // Not processed by the server yet. Re-apply it.
-                        //input에 있는 x,y의 delta 값이다
-                        player.applyInput(input.x,input.y);
-                        j++;
-                    }
-                }
+        self.players.forEach(function (ele) {
+          if (ele.id === state.playerId) {
+            //console.log(state.x);
+            ele.col = state.x
+            ele.row = state.y
+          }
 
-                // 디른 클라이언트일 때
-            } else {
-
-                self.players.forEach(function (ele) {
-                    if (ele.id === state.playerId) {
-                        //console.log(state.x);
-                        ele.col = state.x;
-                        ele.row = state.y;
-                    }
-
-                });
-
-                //console.log(self.players)
-            }
-
-
-        }
+        })
+        //console.log(self.players)
+      }
 
     }
-};
 
+  }
+}
 
 FroggerGame.prototype.processInput = function () {
 
-    var self = this;
-    var input = null;
+  var self = this
+  var input = null
 
-    if (self.key_left) {
-        input = {
-            x: -1,
-            y: 0
-        };
-    } else if (self.key_right) {
-        input = {
-            x: 1,
-            y: 0
-        };
-    } else if (self.key_up) {
-        input = {
-            x: 0,
-            y: -1
-        };
-    } else if (self.key_down) {
-        input = {
-            x: 0,
-            y: 1
-        };
-    } else {
-        return;
+  if (self.key_left) {
+    input = {
+      x: -1,
+      y: 0
     }
+  } else if (self.key_right) {
+    input = {
+      x: 1,
+      y: 0
+    }
+  } else if (self.key_up) {
+    input = {
+      x: 0,
+      y: -1
+    }
+  } else if (self.key_down) {
+    input = {
+      x: 0,
+      y: 1
+    }
+  } else {
+    return
+  }
 
-    if (!self.playerUpdate(self.players[0], input.x, input.y)) return;
+  if (!self.playerUpdate(self.players[0], input.x, input.y)) return
 
-    input.sequenceNumber = self.sequenceNumber++;
-    input.clientId = self.players[0].id;
-    input.roomId = self.roomId;
-    self.emit('sendInput', input);
+  input.sequenceNumber = self.sequenceNumber++
+  input.clientId = self.players[0].id
+  input.roomId = self.roomId
+  self.emit('sendInput', input)
 
+  self.pendingInputs.push(input)
 
-    self.pendingInputs.push(input);
-
-};
+}
 FroggerGame.prototype.handleInput = function (key) {
 
-    var self = this;
+  var self = this
 
-    if (self.gameState == 1) { //while playing the game
-        switch (key) {
-            case 'left':
-                self.key_left = true;
-                break;
-            case 'right':
-                self.key_right = true;
-                break;
-            case 'up':
-                self.key_up = true;
-                break;
-            case 'down':
-                self.key_down = true;
-                break;
-            case 'key_Released':
-                self.key_right = false;
-                self.key_left = false;
-                self.key_up = false;
-                self.key_down = false;
-                break;
+  if (self.gameState === 1) { //while playing the game
+    switch (key) {
+      case 'left':
+        self.key_left = true
+        break
+      case 'right':
+        self.key_right = true
+        break
+      case 'up':
+        self.key_up = true
+        break
+      case 'down':
+        self.key_down = true
+        break
+      case 'key_Released':
+        self.key_right = false
+        self.key_left = false
+        self.key_up = false
+        self.key_down = false
+        break
 
-        }
     }
-};
+  }
+}
 
 FroggerGame.prototype.updateAll = function (dt) {
-    var self = this;
+  var self = this
 
-    self.allEnemies.forEach(function (enemy) {
-        enemy.update(dt, self.gameState, self.level);
-    });
+  self.allEnemies.forEach(function (enemy) {
+    enemy.update(dt, self.gameState, self.level)
+  })
 
-    self.checkCollisions();
-};
+  self.checkCollisions()
+}
 
 // 서버에서 이거 굴리면 되겠는데?
 // player 움직이면 그 데이터가 올꺼고,
@@ -8169,86 +8158,90 @@ FroggerGame.prototype.updateAll = function (dt) {
 // gemCount 세서 levelUP도 시켜야되고
 // 이걸 다 처리하고 해당 내용을 다른 client들에게도 전송 해 줘야 한다. 그리고 그것들이 다 동기화 되어야 한다.
 FroggerGame.prototype.playerUpdate = function (player, deltaX, deltaY) {
-    var self = this;
+  var self = this
 
-    if (!self.checkBound(player.getPosition(), deltaX, deltaY) || !self.checkOtherPlayers(player.getPosition(), deltaX, deltaY)) {
-        // 서버측이라면 restore를 해야한다.
-        // 이벤트를 발생 시키고 그걸 RoomManager의 gameRoom 객체에서 처리 하도록 하자.
-        // 클라이언트에서는 아무일도 발생 하지 않아야하고
-        // 서버에서는 처리해야한다.
-        // 따라서 emitter를 활용 이벤트만 발생 시키자.
-        // 그러면 클라이언트든, 서버든 별 문제없이 돌아 갈 수 있다.
-        // self.emit('response' , response); 이런식으로 전송
-        return false;
-    }
+  if (!self.checkBound(player.getPosition(), deltaX, deltaY) || !self.checkOtherPlayers(player.getPosition(), deltaX, deltaY)) {
+    // 서버측이라면 restore를 해야한다.
+    // 이벤트를 발생 시키고 그걸 RoomManager의 gameRoom 객체에서 처리 하도록 하자.
+    // 클라이언트에서는 아무일도 발생 하지 않아야하고
+    // 서버에서는 처리해야한다.
+    // 따라서 emitter를 활용 이벤트만 발생 시키자.
+    // 그러면 클라이언트든, 서버든 별 문제없이 돌아 갈 수 있다.
+    // self.emit('response' , response); 이런식으로 전송
+    return false
+  }
 
-    player.applyInput(deltaX, deltaY);
+  player.applyInput(deltaX, deltaY)
 
-    //collect any gems
-    var pickup = self.gems.gemGrid[player.row][player.col];
-    switch (pickup) {
-        case 1:
-            player.score += 1;
-            break;
-        case 2:
-            player.score += 2;
-            break;
-        case 3:
-            player.score += 10;
-            break;
-        case 4:
-            player.lives += 1;
-            break;
-        case 5:
-            player.invincible = true;
-            break;
-    }
+  //collect any gems
+  var pickup = self.gems.gemGrid[player.row][player.col]
+  switch (pickup) {
+    case 1:
+      player.score += 1
+      break
+    case 2:
+      player.score += 2
+      break
+    case 3:
+      player.score += 10
+      break
+    case 4:
+      player.lives += 1
+      break
+    case 5:
+      player.invincible = true
+      break
+  }
 
-    if (pickup !== 0 && pickup !== undefined) self.gems.gemCnt--;
-    //cell is now empty
-    // 여기서서버로 알려서 다른 클라이언트에게 알려야겠다.
-    self.gems.gemGrid[player.row][player.col] = 0;
-    //update actual position
-    player.x = player.col * 100;
-    player.y = player.row * 83 - 30;
+  if (pickup !== 0 && pickup !== undefined) self.gems.gemCnt--
+  //cell is now empty
+  // 여기서서버로 알려서 다른 클라이언트에게 알려야겠다.
+  self.gems.gemGrid[player.row][player.col] = 0
+  //update actual position
+  player.x = player.col * 100
+  player.y = player.row * 83 - 30
 
-    if (self.gems.gemCnt <= 0) {
-        self.level++;
-        self.gems.initialize();
-        player.initialize();
-        self.allEnemies.forEach(function (enemy) {
-            enemy.initialize(self.gameState, self.level);
-        });
-    }
+  if (self.gems.gemCnt <= 0) {
+    self.level++
+    // 이 부분을 서버로 시그널을 전송하고 응답이 오기를 기다린 다음 initial 하는 방법으로 바꿀 수도 있다
+    self.gems.initialize()
+    player.initialize()
 
-    return true;
-};
+    self.allEnemies.forEach(function (enemy) {
+      enemy.initialize(self.gameState, self.level)
+    })
+  }
+
+  return true
+}
 
 FroggerGame.prototype.checkBound = function (position, deltaX, deltaY) {
-    var x = position.x + deltaX,
-        y = position.y + deltaY;
-    if (y > 5 || x > 4 || x < 0 || y < 0) return false;
-    return true;
-};
+  var x = position.x + deltaX,
+    y = position.y + deltaY
+  if (y > 5 || x > 4 || x < 0 || y < 0) return false
+  return true
+}
 
 FroggerGame.prototype.checkOtherPlayers = function (position, deltaX, deltaY) {
-    var self = this;
-    /*
-    var x = position.x + deltaX,
-        y = position.y + deltaY;
+  var self = this
+  /*
+  var x = position.x + deltaX,
+      y = position.y + deltaY;
 
-    self.players.forEach(function (player) {
-        if (player.col === x && player.row === y) return false;
-    });
-    */
-    return true;
-};
+  self.players.forEach(function (player) {
+      if (player.col === x && player.row === y) return false;
+  });
+  */
+  return true
+}
 
-module.exports = FroggerGame;
+module.exports = FroggerGame
 
-},{"./Enemy":54,"./Gems":57,"./Player":58,"./Popup":59,"SeedRandom":4,"events":2,"inherits":38}],57:[function(require,module,exports){
-var Gems = function() {
-  var self = this;
+},{"./Enemy":54,"./Gems":57,"./Player":58,"./Popup":59,"events":2,"inherits":38}],57:[function(require,module,exports){
+var SeedRandom = require('SeedRandom')
+
+function Gems (randomSeed) {
+  var self = this
   self.gemGrid = [
     [],
     [],
@@ -8256,49 +8249,58 @@ var Gems = function() {
     [],
     [],
     []
-  ]; //gemGrid[row][col]
-  self.initialize();
-};
+  ]
+
+  self.setRandomSeed(randomSeed)
+
+  self.initialize()
+}
+
+Gems.prototype.setRandomSeed = function (seed) {
+  var self = this
+
+  self.randomseed = seed
+  self.random = SeedRandom(self.randomseed)
+}
 
 //lay gems at random at the start of each level
-Gems.prototype.initialize = function() {
-  var self = this;
-  self.gemCnt = 0;
+Gems.prototype.initialize = function () {
+  var self = this
+  self.gemCnt = 0
   for (var i = 1; i < 4; i++) { //rows (only the paved ones)
     for (var j = 0; j < 5; j++) { //columns
       //choose whether each square should contain a gem, heart, star, or nothing
       // 이 부분도 random seed로 처리해야됨
-      var random = Math.floor(Math.random() * 100);
-      if(random >= 50) self.gemCnt++;
+      var random = Math.floor(self.random() * 100)
+      if (random >= 50) self.gemCnt++
 
       switch (true) {
         case (random < 50):
-          self.gemGrid[i][j] = 0;
-          break;
+          self.gemGrid[i][j] = 0
+          break
         case (random < 75):
-          self.gemGrid[i][j] = 1;
-          break;
+          self.gemGrid[i][j] = 1
+          break
         case (random < 90):
-          self.gemGrid[i][j] = 2;
-          break;
+          self.gemGrid[i][j] = 2
+          break
         case (random < 95):
-          self.gemGrid[i][j] = 3;
-          break;
+          self.gemGrid[i][j] = 3
+          break
         case (random < 98):
-          self.gemGrid[i][j] = 4;
-          break;
+          self.gemGrid[i][j] = 4
+          break
         case (random < 100):
-          self.gemGrid[i][j] = 5;
-          break;
+          self.gemGrid[i][j] = 5
+          break
       }
     }
   }
-};
+}
 
+module.exports = Gems
 
-module.exports = Gems;
-
-},{}],58:[function(require,module,exports){
+},{"SeedRandom":4}],58:[function(require,module,exports){
 //Player the user controls
 var Player = function (options) {
     var self = this;
@@ -8396,6 +8398,11 @@ function ClientManager() {
 
 ClientManager.prototype.init = function () {
     var self = this;
+    self.startbutton = document.getElementById("startButton");
+    self.startbutton.disabled = true;
+    self.startbutton.addEventListener('click', function () {
+        self.socket.emit('start' , {roomId : self.roomId});
+    });
 
     self.socket = SocketIO(window.location.hostname + ':' + window.location.port);
     self.setupSocket();
@@ -8410,19 +8417,25 @@ ClientManager.prototype.setupSocket = function () {
     });
 
     self.socket.on('welcome', function (message) {
-
-        self.main = new Main({
-            id: self.socket.id,
-            seed: message.seed,
-            order: message.order,
-            roomId: message.roomId
-        });
+        self.roomId = message.roomId;
+        // enemy seed도 따로 받아야 한다
+        self.main = new Main(message);
         self.socket.on('game packet', self.socketHandler.bind(self));
+    });
+
+    self.socket.on('player number', function (data) {
+        self.startbutton.innerHTML = "Players waiting in this room : " + data.num;
+    });
+
+    self.socket.on('activate start button', function () {
+
+        self.startbutton.disabled = false;
     });
 
 
     // bugspeed와 gem배열이 들어올 수 있음
     self.socket.on('start', function (message) {
+        document.body.innerHTML = "";
         self.main.startLoop();
 
         self.main.game.on('sendInput', function (param) {
@@ -8438,7 +8451,7 @@ ClientManager.prototype.socketHandler = function (message) {
     // 여기서 이제 다른 player의 데이터를 동기화 하거나
     // 일단 클라이언트의 입력에 따라 서버에서 처리가 제대로 되는지 파악 해 보자
     if (message.type === 0) {
-        if(message.id == self.socket.id) return;
+        if(message.id === self.socket.id) return;
         self.main.game.addPlayer(message);
     } else if (message.type === 5) {
         if (self.main.game.gameState !== 1) return;
@@ -8460,76 +8473,77 @@ ClientManager.prototype.socketHandler = function (message) {
 };
 
 },{"./main":61,"socket.io-client":44}],61:[function(require,module,exports){
-var DrawModule = require('./FroggerGameBoard');
-var FroggerGame = require('./FroggerGameLogic');
+var DrawModule = require('./FroggerGameBoard')
+var FroggerGame = require('./FroggerGameLogic')
 
-function Main(gameInfo) {
-    var self = this;
-    if (!(self instanceof Main)) return new Main(id);
-    self.allowedKeys = {
-        37: 'left',
-        38: 'up',
-        39: 'right',
-        40: 'down',
-        32: 'space',
-        82: 'restart'
-    };
+function Main (gameInfo) {
 
-    self.game = new FroggerGame(gameInfo);
-    self.game.addPlayer({id: gameInfo.id, order: gameInfo.order});
+  var self = this
+  if (!(self instanceof Main)) return new Main(id)
+  self.allowedKeys = {
+    37: 'left',
+    38: 'up',
+    39: 'right',
+    40: 'down',
+    32: 'space',
+    82: 'restart'
+  }
 
-    self.p5sketch = function (p) {
-        self.drawObj = new DrawModule();
+  self.game = new FroggerGame(gameInfo)
+  self.game.addPlayer({id: gameInfo.id, order: gameInfo.order})
 
-        p.preload = function () {
-            self.drawObj.init(p);
-            self.game.initGame();
-        };
+  self.p5sketch = function (p) {
+    self.drawObj = new DrawModule()
 
-        p.setup = function () {
-            var scale = self.drawObj.getScale();
-            p.createCanvas(scale.w, scale.h);
-            p.frameRate(50);
-            self.lastTime = Date.now();
-            self.inputIntervalTime = self.lastTime;
-        };
+    p.preload = function () {
+      self.drawObj.init(p)
+      self.game.initGame()
+    }
 
-        p.draw = function () {
-            p.clear();
+    p.setup = function () {
+      var scale = self.drawObj.getScale()
+      p.createCanvas(scale.w, scale.h)
+      p.frameRate(50)
+      self.lastTime = Date.now()
+      self.inputIntervalTime = self.lastTime
+    }
 
-            var now = Date.now(),
-                dt = (now - self.lastTime) / 1000.0;
+    p.draw = function () {
+      p.clear()
 
-            self.game.processServerMessages();
+      var now = Date.now(),
+        dt = (now - self.lastTime) / 1000.0
 
-            if ((now - self.inputIntervalTime) / 1000.0 > 4 * dt) {
-                self.inputIntervalTime = now;
-                self.game.processInput();
-            }
+      self.game.processServerMessages()
 
-            self.game.updateAll(dt);
+      if ((now - self.inputIntervalTime) / 1000.0 > 4 * dt) {
+        self.inputIntervalTime = now
+        self.game.processInput()
+      }
 
-            self.drawObj.render(self.game.players,self.game.level,self.game.allEnemies,self.game.gameState,self.game.gems.gemGrid);
+      self.game.updateAll(dt)
 
-            self.lastTime = now;
-        };
+      self.drawObj.render(self.game.players, self.game.level, self.game.allEnemies, self.game.gameState, self.game.gems.gemGrid)
 
-        p.keyPressed = function () {
-            self.game.handleInput(self.allowedKeys[p.keyCode]);
-        };
+      self.lastTime = now
+    }
 
-        p.keyReleased = function () {
-            self.game.handleInput('key_Released');
-        };
+    p.keyPressed = function () {
+      self.game.handleInput(self.allowedKeys[p.keyCode])
+    }
 
-    };
+    p.keyReleased = function () {
+      self.game.handleInput('key_Released')
+    }
+
+  }
 }
 
 Main.prototype.startLoop = function () {
-    var self = this;
-    new p5(self.p5sketch, 'myp5sketch');
-};
+  var self = this
+  new p5(self.p5sketch, 'myp5sketch')
+}
 
-module.exports = Main;
+module.exports = Main
 
 },{"./FroggerGameBoard":55,"./FroggerGameLogic":56}]},{},[60]);

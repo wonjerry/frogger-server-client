@@ -12,6 +12,11 @@ function ClientManager() {
 
 ClientManager.prototype.init = function () {
     var self = this;
+    self.startbutton = document.getElementById("startButton");
+    self.startbutton.disabled = true;
+    self.startbutton.addEventListener('click', function () {
+        self.socket.emit('start' , {roomId : self.roomId});
+    });
 
     self.socket = SocketIO(window.location.hostname + ':' + window.location.port);
     self.setupSocket();
@@ -26,19 +31,25 @@ ClientManager.prototype.setupSocket = function () {
     });
 
     self.socket.on('welcome', function (message) {
-
-        self.main = new Main({
-            id: self.socket.id,
-            seed: message.seed,
-            order: message.order,
-            roomId: message.roomId
-        });
+        self.roomId = message.roomId;
+        // enemy seed도 따로 받아야 한다
+        self.main = new Main(message);
         self.socket.on('game packet', self.socketHandler.bind(self));
+    });
+
+    self.socket.on('player number', function (data) {
+        self.startbutton.innerHTML = "Players waiting in this room : " + data.num;
+    });
+
+    self.socket.on('activate start button', function () {
+
+        self.startbutton.disabled = false;
     });
 
 
     // bugspeed와 gem배열이 들어올 수 있음
     self.socket.on('start', function (message) {
+        document.body.innerHTML = "";
         self.main.startLoop();
 
         self.main.game.on('sendInput', function (param) {
@@ -54,7 +65,7 @@ ClientManager.prototype.socketHandler = function (message) {
     // 여기서 이제 다른 player의 데이터를 동기화 하거나
     // 일단 클라이언트의 입력에 따라 서버에서 처리가 제대로 되는지 파악 해 보자
     if (message.type === 0) {
-        if(message.id == self.socket.id) return;
+        if(message.id === self.socket.id) return;
         self.main.game.addPlayer(message);
     } else if (message.type === 5) {
         if (self.main.game.gameState !== 1) return;
