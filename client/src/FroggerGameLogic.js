@@ -34,13 +34,20 @@ function FroggerGame (options) {
   self.pendingInputs = []
 
   self.gems = new Gems(options.seeds.gemSeed)
-  self.bug1 = new Enemy(options.seeds.enemy1Seed)
-  self.bug2 = new Enemy(options.seeds.enemy2Seed)
-  self.bug3 = new Enemy(options.seeds.enemy3Seed)
+
+  self.bug1 = new Enemy(options.seeds.enemy1Seed, 0)
+  self.bug2 = new Enemy(options.seeds.enemy2Seed, 1)
+  self.bug3 = new Enemy(options.seeds.enemy3Seed, 2)
+
+  console.log(self.bug1.id)
+  console.log(self.bug2.id)
+  console.log(self.bug3.id)
+
+  self.allEnemies = [self.bug1, self.bug2, self.bug3]
 }
 
 FroggerGame.prototype.setSeeds = function (seeds) {
-  var self = this;
+  var self = this
 
   self.gems.setRandomSeed(seeds.gemSeed)
   self.bug1.setRandomSeed(seeds.enemy1Seed)
@@ -91,19 +98,18 @@ FroggerGame.prototype.initGame = function () {
   self.gameState = 1 //0=not started, 1=playing, 2=game over
   self.level = 1
 
-  self.allEnemies = [self.bug1, self.bug2, self.bug3]
-
   self.bug1.initialize(self.gameState, self.level)
   self.bug2.initialize(self.gameState, self.level)
   self.bug3.initialize(self.gameState, self.level)
 
   self.popup = new Popup()
+
 }
 
 // 클라이언트에서만 한다.
-FroggerGame.prototype.checkCollisions = function () {
+FroggerGame.prototype.checkCollisions = function (somePlayer) {
   var self = this
-  var player = self.players[0]
+  var player = somePlayer || self.players[0]
   if (player.invincible === false && self.gameState === 1) {
     for (i = 0; i < self.allEnemies.length; i++) {
       var enemy = self.allEnemies[i]
@@ -134,27 +140,36 @@ FroggerGame.prototype.processServerMessages = function () {
 
     var worldStates = message[0].worldState
 
+    var length = worldStates.length
+
+    for (var i = 0; i < length; i++) {
+      for (var j = 1; j < self.players.length; j++) {
+
+        if (self.players[j].id === worldStates[i].clientId) {
+          self.playerUpdate(self.players[j], worldStates[i].x, worldStates[i].y)
+        }
+      }
+    }
+
+    /*
     while (worldStates.length !== 0) {
 
       var state = (worldStates.splice(0, 1))[0]
-
-      var player = null
-      // 들어온 state가 자기 자신에 관한 것 일 때
 
       if (self.players[0].id !== state.playerId) {
 
         self.players.forEach(function (ele) {
           if (ele.id === state.playerId) {
-            //console.log(state.x);
+            //self.playerUpdate(ele)
             ele.col = state.x
             ele.row = state.y
           }
 
         })
-        //console.log(self.players)
+
       }
 
-    }
+    }*/
 
   }
 }
@@ -184,9 +199,7 @@ FroggerGame.prototype.processInput = function () {
       x: 0,
       y: 1
     }
-  } else {
-    return
-  }
+  } else return
 
   if (!self.playerUpdate(self.players[0], input.x, input.y)) return
 
@@ -198,6 +211,7 @@ FroggerGame.prototype.processInput = function () {
   self.pendingInputs.push(input)
 
 }
+
 FroggerGame.prototype.handleInput = function (key) {
 
   var self = this
@@ -229,12 +243,28 @@ FroggerGame.prototype.handleInput = function (key) {
 
 FroggerGame.prototype.updateAll = function (dt) {
   var self = this
+  console.log(dt);
 
   self.allEnemies.forEach(function (enemy) {
-    enemy.update(dt, self.gameState, self.level)
+
+    if (enemy.x > 550) {
+      // 여기 gameState 드가야됨
+      enemy.initialize(self.gameState, self.level)
+      self.emit('enemy initialize', {id: enemy.id})
+
+    } else enemy.move(dt)
+
+    //enemy.update(dt, self.gameState, self.level)
   })
 
   self.checkCollisions()
+}
+
+FroggerGame.prototype.enemyInitialize = function (id) {
+  var self = this
+
+  self.allEnemies[id].initialize(self.gameState, self.level)
+
 }
 
 // 서버에서 이거 굴리면 되겠는데?
@@ -284,9 +314,6 @@ FroggerGame.prototype.playerUpdate = function (player, deltaX, deltaY) {
   //cell is now empty
   // 여기서서버로 알려서 다른 클라이언트에게 알려야겠다.
   self.gems.gemGrid[player.row][player.col] = 0
-  //update actual position
-  player.x = player.col * 100
-  player.y = player.row * 83 - 30
 
   if (self.gems.gemCnt <= 0) {
     self.level++
@@ -297,6 +324,7 @@ FroggerGame.prototype.playerUpdate = function (player, deltaX, deltaY) {
     self.allEnemies.forEach(function (enemy) {
       enemy.initialize(self.gameState, self.level)
     })
+
   }
 
   return true
@@ -305,8 +333,8 @@ FroggerGame.prototype.playerUpdate = function (player, deltaX, deltaY) {
 FroggerGame.prototype.checkBound = function (position, deltaX, deltaY) {
   var x = position.x + deltaX,
     y = position.y + deltaY
-  if (y > 5 || x > 4 || x < 0 || y < 0) return false
-  return true
+
+  return !(y > 5 || x > 4 || x < 0 || y < 0)
 }
 
 FroggerGame.prototype.checkOtherPlayers = function (position, deltaX, deltaY) {

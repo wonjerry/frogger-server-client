@@ -17,14 +17,27 @@ function GameRoom () {
   self.enemy3Seed = Math.random().toString(36).substr(2)
 
   self.game = new Game({
-    seeds : self.getSeeds(),
-    roomId : self.roomId
+    seeds: self.getSeeds(),
+    roomId: self.roomId
+  })
+
+  self.game.on("enemy initialize", function (data) {
+    var response = {
+      roomId: self.roomId,
+      broadcast: true,
+      time: Date.now(),
+      enemyId: data.id,
+      type: Util.ACTION_TYPE.ENEMY_INITIALIZE
+    }
+
+    self.emit('response', response)
   })
 
   self.messages = []
   self.gameInterval = null
   self.prevTick = 0
   // 여기 있어도 될까?
+  self.processedInputs = []
   self.lastProcessedInput = []
 }
 
@@ -57,6 +70,20 @@ GameRoom.prototype.initGame = function () {
   // 일단 난 history 전송 안하고 이것만 한다.
   self.game.initGame() //0=not started, 1=playing, 2=game over
 
+  self.lastTime = Date.now()
+  var loop = function () {
+
+    var now = Date.now(),
+      dt = (now - self.lastTime) / 1000.0
+
+    self.game.updateAll(dt)
+
+    //console.log(self.allEnemies[0].x)
+    self.lastTime = now
+  }
+
+  self.loopInterval = setInterval(loop.bind(self), 20)
+
   function gameLoop () {
     var self = this
 
@@ -84,8 +111,10 @@ GameRoom.prototype.processInput = function () {
     self.game.players.forEach(function (player) {
       if (message.clientId === player.id) {
         // 여기서 받는 x,y는 delta 값이다
-        player.applyInput(message.x, message.y)
+        self.game.playerUpdate(player, message.x, message.y)
+        self.game.checkCollisions(player)
         self.lastProcessedInput[message.clientId] = message.sequenceNumber
+        self.processedInputs.push(message)
       }
     })
 
@@ -95,18 +124,19 @@ GameRoom.prototype.processInput = function () {
 GameRoom.prototype.sendWorldState = function () {
   var self = this
 
-  var world_state = []
-  // 나중에 클라이언트 제안이 4로 바뀌면 바꿔주어야 할 부분이다
-  var num_clients = 2
+  var world_state = self.processedInputs
 
+  /*
   self.game.players.forEach(function (player) {
     world_state.push({
       playerId: player.id,
       x: player.col,
       y: player.row,
+      processedInputs : self.processedInputs,
       lastProcessedInput: self.lastProcessedInput[player.id]
     })
   })
+  */
 
   var response = {
     roomId: self.roomId,
@@ -119,6 +149,8 @@ GameRoom.prototype.sendWorldState = function () {
   }
 
   self.emit('response', response)
+
+  self.processedInputs = []
 }
 
 GameRoom.prototype.pushClient = function (options) {

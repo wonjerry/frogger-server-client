@@ -1,11 +1,11 @@
 var SeedRandom = require('SeedRandom')
 
 // Enemies our player must avoid
-var Enemy = function (randomSeed) {
+var Enemy = function (randomSeed , id) {
   var self = this
   self.width = 70
   self.height = 50
-
+  self.id = id
   self.setRandomSeed(randomSeed)
 }
 
@@ -39,8 +39,14 @@ Enemy.prototype.update = function (dt, gameState, level) {
     self.initialize(gameState, level)
   } else {
     //bugs move at a constant speed and can overtake/overlap
-    self.x = self.x + self.speed * dt
+    self.move(dt)
   }
+}
+
+Enemy.prototype.move = function (dt) {
+  var self = this
+
+  self.x = self.x + self.speed * dt
 }
 
 Enemy.prototype.getPosition = function () {

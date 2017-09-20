@@ -28,29 +28,35 @@ function Main (gameInfo) {
     p.setup = function () {
       var scale = self.drawObj.getScale()
       p.createCanvas(scale.w, scale.h)
-      p.frameRate(50)
+      p.noLoop()
       self.lastTime = Date.now()
       self.inputIntervalTime = self.lastTime
+
+      var loop = function () {
+
+        var now = Date.now(),
+          dt = (now - self.lastTime) / 1000.0
+
+        self.game.processServerMessages()
+
+        if ((now - self.inputIntervalTime) / 1000.0 > 4 * dt) {
+          self.inputIntervalTime = now
+          self.game.processInput()
+        }
+
+        self.game.updateAll(dt)
+
+        self.lastTime = now
+
+        p.redraw();
+      }
+
+      self.loopInterval = setInterval(loop.bind(self), 20)
     }
 
     p.draw = function () {
       p.clear()
-
-      var now = Date.now(),
-        dt = (now - self.lastTime) / 1000.0
-
-      self.game.processServerMessages()
-
-      if ((now - self.inputIntervalTime) / 1000.0 > 4 * dt) {
-        self.inputIntervalTime = now
-        self.game.processInput()
-      }
-
-      self.game.updateAll(dt)
-
       self.drawObj.render(self.game.players, self.game.level, self.game.allEnemies, self.game.gameState, self.game.gems.gemGrid)
-
-      self.lastTime = now
     }
 
     p.keyPressed = function () {
